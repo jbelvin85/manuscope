@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<svg xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://web.resource.org/cc/" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:svg="http://www.w3.org/2000/svg" id="svg1" height="400pt" width="400pt">
+  <defs id="defs3">
+    <linearGradient id="linearGradient585">
+      <stop id="stop586" stop-color="#fff" stop-opacity=".175" offset="0"/>
+      <stop id="stop587" stop-color="#fff" stop-opacity=".375" offset="1"/>
+    </linearGradient>
+    <linearGradient id="linearGradient582" x2=".41176" y1=".51136" x1=".48529" y2=".60227">
+      <stop id="stop580" stop-opacity=".40833" offset="0"/>
+      <stop id="stop581" stop-opacity="0" offset="1"/>
+    </linearGradient>
+    <linearGradient id="linearGradient584" y2="1.0965" xlink:href="#linearGradient585" y1=".12281" x2=".32721" x1=".50735"/>
+    <linearGradient id="linearGradient589" xlink:href="#linearGradient585"/>
+  </defs>
+  <g id="g847" fill-rule="evenodd">
+    <path id="path575" stroke-linejoin="round" d="m93.858 201.9c2.914-12.97 5.827-102.33 32.052-100.89 93.23 2.88 189.38-93.69 259.3 121.07 215.6 100.9 14.99 181.97-155.69 174.77-168.66-7.07-312.66-128.65-135.66-194.95z" fill-opacity=".99167" stroke="#000" stroke-width="10" fill="#d90000"/>
+    <path id="path576" stroke="#000" stroke-width="5" d="m89.488 230.73c107.8 67.74 285.52 25.94 292.81-7.21 10.19 11.53 0 43.24 0 43.24-46.62 60.54-272.42 47.57-297.18 4.33-2.916-11.53 2.911-36.04 4.368-40.36z"/>
+    <path id="path578" stroke-width="1pt" fill="url(#linearGradient582)" d="m130.28 122.63c27.68-24.505 148.59 10.09 164.61 28.83 5.83 31.71-148.59 7.2-164.61-28.83z"/>
+    <path id="path583" stroke-width="1pt" fill="url(#linearGradient584)" d="m130.28 158.66c13.11 30.27 64.09 100.9 150.04 33.15-71.38 2.89-101.97-5.76-150.04-33.15z"/>
+    <path id="path588" stroke-width="1pt" fill="url(#linearGradient589)" d="m160.87 99.567c18.94 8.643 138.39 41.803 151.5 31.713 14.57-5.77 11.66-8.65 4.37-10.09-11.65 7.2-32.05 11.53-155.87-21.623z"/>
+    <path id="path590" d="m106.97 246.58c17.48 8.65 71.38 20.18 91.78 21.62 14.56 10.09 7.28 25.95 1.45 37.48-39.33 0-84.49-10.09-96.14-23.06-7.288-12.97-4.375-23.06 2.91-36.04z" fill-opacity=".31667" stroke="#000" stroke-width="1.8783pt" fill="#fff"/>
+  </g>
+  <rdf:RDF xmlns="http://web.resource.org/cc/">
+    <Work rdf:about="">
+      <dc:title>Clipart by Nicu Buculei - svg_globe_green</dc:title>
+      <dc:rights>
+        <Agent>
+          <dc:title>Nicu Buculei</dc:title>
+        </Agent>
+      </dc:rights>
+      <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+      <license rdf:resource="http://web.resource.org/cc/PublicDomain"/>
+    </Work>
+    <License rdf:about="http://web.resource.org/cc/PublicDomain">
+      <permits rdf:resource="http://web.resource.org/cc/Reproduction"/>
+      <permits rdf:resource="http://web.resource.org/cc/Distribution"/>
+      <permits rdf:resource="http://web.resource.org/cc/DerivativeWorks"/>
+    </License>
+  </rdf:RDF>
+  <metadata>
+    <rdf:RDF>
+      <cc:Work>
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+        <cc:license rdf:resource="http://creativecommons.org/licenses/publicdomain/"/>
+        <dc:publisher>
+          <cc:Agent rdf:about="http://openclipart.org/">
+            <dc:title>Openclipart</dc:title>
+          </cc:Agent>
+        </dc:publisher>
+        <dc:title>Red fedora</dc:title>
+        <dc:date>2008-02-25T14:16:33</dc:date>
+        <dc:description>A fedora which is red. Not related at all to Red Hat or Fedora Project.</dc:description>
+        <dc:source>http://openclipart.org/detail/14848/red-fedora-by-nicubunu</dc:source>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>nicubunu</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:subject>
+          <rdf:Bag>
+            <rdf:li>cartoon</rdf:li>
+            <rdf:li>clip art</rdf:li>
+            <rdf:li>clipart</rdf:li>
+            <rdf:li>clothing</rdf:li>
+            <rdf:li>hat</rdf:li>
+            <rdf:li>image</rdf:li>
+            <rdf:li>media</rdf:li>
+            <rdf:li>people</rdf:li>
+            <rdf:li>png</rdf:li>
+            <rdf:li>public domain</rdf:li>
+            <rdf:li>svg</rdf:li>
+          </rdf:Bag>
+        </dc:subject>
+      </cc:Work>
+      <cc:License rdf:about="http://creativecommons.org/licenses/publicdomain/">
+        <cc:permits rdf:resource="http://creativecommons.org/ns#Reproduction"/>
+        <cc:permits rdf:resource="http://creativecommons.org/ns#Distribution"/>
+        <cc:permits rdf:resource="http://creativecommons.org/ns#DerivativeWorks"/>
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+</svg>
