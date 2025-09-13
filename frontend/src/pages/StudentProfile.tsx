@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 
 interface Student {
   id: number;
@@ -21,6 +21,7 @@ const StudentProfile: React.FC = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const [student, setStudent] = useState<Student | null>(null);
   const [words, setWords] = useState<Word[]>([]);
+  const [first100Words, setFirst100Words] = useState<Word[]>([]); // New state for first 100 words
   const [assignedWords, setAssignedWords] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +51,15 @@ const StudentProfile: React.FC = () => {
         return response.json();
       })
       .then(data => setAssignedWords(new Set(data)))
+      .catch(err => setError(err.message));
+
+    // Fetch first 100 words
+    fetch('http://localhost:4001/words/first100')
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to fetch first 100 words');
+        return response.json();
+      })
+      .then(data => setFirst100Words(data))
       .catch(err => setError(err.message));
 
   }, [studentId]);
@@ -98,6 +108,30 @@ const StudentProfile: React.FC = () => {
       <p>School: {student.school || 'N/A'}</p>
       <p>Date of Birth: {student.date_of_birth || 'N/A'}</p>
       <p>Claim Code: <strong>{student.claim_code}</strong></p>
+      <Link to={`/student/${studentId}/onboarding`} style={{ display: 'inline-block', marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '5px' }}>
+        Start Onboarding Review
+      </Link>
+
+      <h2>Assign First 100 Words</h2>
+      <button onClick={() => {
+        const newAssignedWords = new Set(assignedWords);
+        first100Words.forEach(word => newAssignedWords.add(word.id));
+        setAssignedWords(newAssignedWords);
+      }} style={{marginBottom: '1rem'}}>Assign All First 100 Words</button>
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.5rem', marginBottom: '2rem'}}>
+        {first100Words.map(word => (
+          <div key={word.id}>
+            <input
+              type="checkbox"
+              id={`first100-word-${word.id}`}
+              checked={assignedWords.has(word.id)}
+              onChange={() => handleWordAssignmentChange(word.id)}
+            />
+            <label htmlFor={`first100-word-${word.id}`}>{word.word}</label>
+          </div>
+        ))}
+      </div>
+
       <h2>Vocabulary Goals</h2>
       <button onClick={handleSaveChanges} style={{marginBottom: '1rem'}}>Save Changes</button>
       {Object.entries(groupedWords).map(([category, wordsInCategory]) => (

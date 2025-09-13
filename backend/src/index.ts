@@ -179,7 +179,18 @@ app.post('/students', async (req: Request, res: Response) => {
 // Endpoint to get all words
 app.get('/words', async (req: Request, res: Response) => {
   try {
-    const result = await pool.query('SELECT * FROM words ORDER BY category, word');
+    const result = await pool.query('SELECT id, category, word, level, image_link, video_link, custom_image_boolean, custom_image_link, created_at FROM words ORDER BY category, word');
+    res.json(result.rows);
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint to get the first 100 vocabulary words
+app.get('/words/first100', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT id, category, word, level, image_link, video_link, custom_image_boolean, custom_image_link, created_at FROM words ORDER BY id LIMIT 100');
     res.json(result.rows);
   } catch (err: any) {
     console.error(err);
@@ -189,36 +200,85 @@ app.get('/words', async (req: Request, res: Response) => {
 
 // Endpoint to record student progress
 app.post('/progress', async (req: Request, res: Response) => {
-  const { studentId, wordId, level } = req.body;
+  const { studentId, wordId, level, notes } = req.body;
 
   if (!studentId || !wordId || !level) {
     return res.status(400).json({ error: 'Student ID, word ID, and level are required' });
   }
 
   try {
-    // Check if a progress entry already exists for this student and word
+    // Check if a progress entry already exists for this student, word, and level
     const existingProgress = await pool.query(
-      'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2',
-      [studentId, wordId]
+      'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2 AND level = $3',
+      [studentId, wordId, level]
     );
 
     if (existingProgress.rows.length > 0) {
-      // Update existing progress
+      // Update existing progress entry's updated_at timestamp and notes
       await pool.query(
-        'UPDATE progress SET level = $1, updated_at = CURRENT_TIMESTAMP WHERE student_id = $2 AND word_id = $3',
-        [level, studentId, wordId]
+        'UPDATE progress SET updated_at = CURRENT_TIMESTAMP, notes = $4 WHERE student_id = $1 AND word_id = $2 AND level = $3',
+        [studentId, wordId, level, notes]
       );
     } else {
-      // Insert new progress
+      // Insert new progress entry
       await pool.query(
-        'INSERT INTO progress (student_id, word_id, level) VALUES ($1, $2, $3)',
-        [studentId, wordId, level]
+        'INSERT INTO progress (student_id, word_id, level, notes) VALUES ($1, $2, $3, $4)',
+        [studentId, wordId, level, notes]
       );
     }
     res.status(201).json({ message: 'Progress recorded successfully' });
   } catch (err: any) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Endpoint to record baseline progress for multiple words
+app.post('/students/:studentId/baseline-progress', async (req: Request, res: Response) => {
+  const { studentId } = req.params;
+  const { progressEntries } = req.body; // Array of { wordId, level, notes }
+
+  if (!Array.isArray(progressEntries)) {
+    return res.status(400).json({ error: 'progressEntries must be an array' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const entry of progressEntries) {
+      const { wordId, level, notes } = entry;
+      if (!wordId || !level) {
+        throw new Error('Each progress entry must have wordId and level');
+      }
+
+      // Check if a progress entry already exists for this student, word, and level
+      const existingProgress = await client.query(
+        'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2 AND level = $3',
+        [studentId, wordId, level]
+      );
+
+      if (existingProgress.rows.length > 0) {
+        // Update existing progress entry's updated_at timestamp and notes
+        await client.query(
+          'UPDATE progress SET updated_at = CURRENT_TIMESTAMP, notes = $4 WHERE student_id = $1 AND word_id = $2 AND level = $3',
+          [studentId, wordId, level, notes]
+        );
+      } else {
+        // Insert new progress entry
+        await client.query(
+          'INSERT INTO progress (student_id, word_id, level, notes) VALUES ($1, $2, $3, $4)',
+          [studentId, wordId, level, notes]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Baseline progress recorded successfully' });
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 });
 

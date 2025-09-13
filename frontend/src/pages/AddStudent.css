@@ -1,0 +1,120 @@
+.add-student-container {
+  font-family: 'Arial', sans-serif;
+  padding: 2.5rem;
+  max-width: 600px;
+  margin: 2rem auto;
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.add-student-container h1 {
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+
+.add-student-form {
+  background-color: #f8f9fa;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.add-student-form label {
+  display: block;
+  margin-bottom: 1.5rem;
+  color: #34495e;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.add-student-form input[type="text"],
+.add-student-form input[type="date"] {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  margin-top: 0.6rem;
+  box-sizing: border-box;
+  font-size: 1rem;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.add-student-form input[type="text"]:focus,
+.add-student-form input[type="date"]:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.add-student-form button[type="submit"] {
+  background-color: #28a745;
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  margin-top: 1.5rem;
+  width: 100%;
+  transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+}
+
+.add-student-form button[type="submit"]:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+.claim-code-display {
+  margin-top: 2.5rem;
+  padding: 2rem;
+  border: 1px solid #28a745;
+  background-color: #d4edda;
+  color: #155724;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+}
+
+.claim-code-display p {
+  margin: 0.75rem 0;
+  font-size: 1.1rem;
+}
+
+.claim-code-display strong {
+  font-size: 1.8rem;
+  color: #007bff;
+  display: block;
+  margin: 0.5rem 0;
+  letter-spacing: 1px;
+}
+
+.claim-code-display button {
+  background-color: #007bff;
+  color: white;
+  padding: 0.8rem 1.8rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-top: 1.5rem;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.claim-code-display button:hover {
+  background-color: #0056b3;
+}
+
+.error-message {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 500;
+}

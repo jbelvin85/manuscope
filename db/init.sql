@@ -30,26 +30,33 @@ CREATE TABLE IF NOT EXISTS students (
 );
 
 CREATE TABLE IF NOT EXISTS words (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category VARCHAR(50) NOT NULL,
     word VARCHAR(100) NOT NULL UNIQUE,
+    level VARCHAR(20),
+    image_link TEXT,
+    video_link TEXT,
+    custom_image_boolean BOOLEAN DEFAULT FALSE,
+    custom_image_link TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS assignments (
     id SERIAL PRIMARY KEY,
     student_id INT REFERENCES students(id) ON DELETE CASCADE,
-    word_id INT REFERENCES words(id) ON DELETE CASCADE,
+    word_id UUID REFERENCES words(id) ON DELETE CASCADE,
     assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS progress (
     id SERIAL PRIMARY KEY,
     student_id INT REFERENCES students(id) ON DELETE CASCADE,
-    word_id INT REFERENCES words(id) ON DELETE CASCADE,
+    word_id UUID REFERENCES words(id) ON DELETE CASCADE,
     level VARCHAR(20) NOT NULL CHECK (level IN ('Input', 'Comprehension', 'Imitation', 'Prompted', 'Spontaneous')),
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE progress ADD COLUMN IF NOT EXISTS notes TEXT;
 
 CREATE TABLE IF NOT EXISTS notes (
     id SERIAL PRIMARY KEY,
