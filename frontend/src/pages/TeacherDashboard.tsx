@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 interface Student {
-  id: number;
+  id: string;
   first_name: string;
   last_name: string;
   school?: string;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Flashcard from '../components/Flashcard';
+import { Level } from '../constants';
 
 interface Word {
   id: string;
@@ -9,8 +10,6 @@ interface Word {
   level?: string;
   image_link?: string;
   video_link?: string;
-  custom_image_boolean?: boolean;
-  custom_image_link?: string;
 }
 
 interface Student {
@@ -19,18 +18,21 @@ interface Student {
     last_name: string;
 }
 
-type Level = 'Input' | 'Comprehension' | 'Imitation' | 'Prompted' | 'Spontaneous' | '';
+interface Progress {
+    word_id: string;
+    level: Level;
+}
 
 interface ProgressEntry {
   wordId: string;
   level: Level;
 }
 
-const StudentOnboarding: React.FC = () => {
+const ReviewSession: React.FC = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
   const [student, setStudent] = useState<Student | null>(null);
-  const [first100Words, setFirst100Words] = useState<Word[]>([]);
+  const [wordsToReview, setWordsToReview] = useState<Word[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState<number>(0);
   const [progress, setProgress] = useState<Record<string, Level>>({});
   const [loading, setLoading] = useState<boolean>(true);
@@ -41,29 +43,36 @@ const StudentOnboarding: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wordsResponse, studentResponse] = await Promise.all([
-          fetch('http://localhost:4001/words/first100'),
-          fetch(`http://localhost:4001/students/${studentId}`)
+        const [studentRes, wordsRes, assignedRes, progressRes] = await Promise.all([
+            fetch(`http://localhost:4001/students/${studentId}`),
+            fetch('http://localhost:4001/words'),
+            fetch(`http://localhost:4001/students/${studentId}/words`),
+            fetch(`http://localhost:4001/students/${studentId}/progress`)
         ]);
 
-        if (!wordsResponse.ok) {
-          throw new Error('Failed to fetch first 100 words');
-        }
-        if (!studentResponse.ok) {
-            throw new Error('Failed to fetch student data');
-        }
+        if (!studentRes.ok) throw new Error('Failed to fetch student details');
+        if (!wordsRes.ok) throw new Error('Failed to fetch all words');
+        if (!assignedRes.ok) throw new Error('Failed to fetch assigned words');
+        if (!progressRes.ok) throw new Error('Failed to fetch progress');
 
-        const wordsData: Word[] = await wordsResponse.json();
-        const studentData: Student = await studentResponse.json();
-        
-        setFirst100Words(wordsData);
+        const studentData: Student = await studentRes.json();
+        const allWords: Word[] = await wordsRes.json();
+        const assignedWordIds: string[] = await assignedRes.json();
+        const progressData: Progress[] = await progressRes.json();
+
         setStudent(studentData);
 
-        const initialProgress: Record<string, Level> = {};
-        wordsData.forEach(word => {
-          initialProgress[word.id] = 'Input';
-        });
-        setProgress(initialProgress);
+        const progressMap = progressData.reduce((acc, p) => {
+            acc[p.word_id] = p.level;
+            return acc;
+        }, {} as Record<string, Level>);
+        setProgress(progressMap);
+
+        const reviewWords = allWords.filter(word => 
+            assignedWordIds.includes(word.id) && progressMap[word.id] !== 'Spontaneous'
+        );
+
+        setWordsToReview(reviewWords);
 
       } catch (err: any) {
         setError(err.message);
@@ -83,7 +92,7 @@ const StudentOnboarding: React.FC = () => {
   };
 
   const handleNextWord = () => {
-    if (currentWordIndex < first100Words.length - 1) {
+    if (currentWordIndex < wordsToReview.length - 1) {
       setCurrentWordIndex(prevIndex => prevIndex + 1);
     }
   };
@@ -94,22 +103,15 @@ const StudentOnboarding: React.FC = () => {
     }
   };
 
-  const handleSubmitBaseline = async () => {
+  const handleSubmit = async () => {
     setError(null);
     setLoading(true);
     try {
       const progressEntries: ProgressEntry[] = Object.entries(progress)
-        .filter(([, level]) => level !== '')
         .map(([wordId, level]) => ({
           wordId: wordId,
           level: level,
         }));
-
-      if (progressEntries.length === 0) {
-        alert('Please select at least one level before saving.');
-        setLoading(false);
-        return;
-      }
 
       const response = await fetch(`http://localhost:4001/students/${studentId}/baseline-progress`, {
         method: 'POST',
@@ -120,10 +122,10 @@ const StudentOnboarding: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save baseline progress');
+        throw new Error('Failed to save progress');
       }
 
-      alert('Baseline progress saved successfully!');
+      alert('Progress saved successfully!');
       navigate(`/student/${studentId}`);
     } catch (err: any) {
       setError(err.message);
@@ -132,16 +134,17 @@ const StudentOnboarding: React.FC = () => {
     }
   };
 
-  if (loading) return <p>Loading onboarding session...</p>;
+  if (loading) return <p>Loading review session...</p>;
   if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
+  if (wordsToReview.length === 0) return <p>All assigned words are at the 'Spontaneous' level!</p>;
 
-  const currentWord = first100Words[currentWordIndex];
+  const currentWord = wordsToReview[currentWordIndex];
 
   return (
     <div style={{ fontFamily: 'sans-serif', padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>Student Onboarding - Baseline Assessment</h1>
+      <h1>Review Session</h1>
       <h2>{student ? `${student.first_name} ${student.last_name}` : 'Loading student...'}</h2>
-      <p>Review word {currentWordIndex + 1} of {first100Words.length}.</p>
+      <p>Review word {currentWordIndex + 1} of {wordsToReview.length}.</p>
 
       {currentWord && (
         <Flashcard
@@ -156,13 +159,13 @@ const StudentOnboarding: React.FC = () => {
         <button onClick={handlePreviousWord} disabled={currentWordIndex === 0 || loading}>
           Previous
         </button>
-        {currentWordIndex < first100Words.length - 1 ? (
+        {currentWordIndex < wordsToReview.length - 1 ? (
           <button onClick={handleNextWord} disabled={loading}>
             Next
           </button>
         ) : (
-          <button onClick={handleSubmitBaseline} disabled={loading || Object.values(progress).filter(level => level !== '').length === 0}>
-            {loading ? 'Saving...' : 'Submit Baseline'}
+          <button onClick={handleSubmit} disabled={loading}>
+            {loading ? 'Saving...' : 'Finish & Save Progress'}
           </button>
         )}
       </div>
@@ -170,4 +173,4 @@ const StudentOnboarding: React.FC = () => {
   );
 };
 
-export default StudentOnboarding;
+export default ReviewSession;

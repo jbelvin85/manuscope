@@ -11,34 +11,34 @@ This document outlines the development goals for the ManuScope project. It is a 
 - [x] Migrate project to TypeScript.
 
 ### User Authentication
-- [ ] Implement user creation with email, password, and role (Teacher/Parent).
-- [ ] Implement user login for both Teacher and Parent roles.
-- [ ] Secure password storage (using bcrypt).
-- [ ] Role-based access control (directing users to the correct dashboard).
+- [x] Implement user creation with email, password, and role (Teacher/Parent).
+- [x] Implement user login for both Teacher and Parent roles.
+- [x] Secure password storage (using bcrypt).
+- [x] Role-based access control (directing users to the correct dashboard).
 
 ### Vocabulary Database
-- [ ] Create a database schema for all necessary tables (users, students, words, etc.).
-- [ ] Seed the database with the Moog Center's first 100 vocabulary words.
-- [ ] Words should be categorized (e.g., food, animals, household).
+- [x] Create a database schema for all necessary tables (users, students, words, etc.).
+- [x] Seed the database with the Moog Center's first 100 vocabulary words.
+- [x] Words should be categorized (e.g., food, animals, household).
 
 ### Teacher Features (MVP)
-- [ ] **Teacher Dashboard:**
-    - [ ] View a list of all students.
+- [x] **Teacher Dashboard:**
+    - [x] View a list of all students.
     - [ ] Quick-view progress for each student.
-- [ ] **Student Management:**
-    - [ ] Create new student profiles.
-    - [ ] View a detailed profile for each student.
-- [ ] **Goal Management:**
-    - [ ] Assign vocabulary goals to students from the Moog 100 list.
+- [x] **Student Management:**
+    - [x] Create new student profiles.
+    - [x] View a detailed profile for each student.
+- [x] **Goal Management:**
+    - [x] Assign vocabulary goals to students from the Moog 100 list.
 
 ### Parent Features (MVP)
-- [ ] **Parent Dashboard:**
-    - [ ] View their child's assigned vocabulary goals.
-    - [ ] A button to start a flashcard session.
-- [ ] **Flashcard System:**
-    - [ ] Display flashcards for the child's current vocabulary goals.
+- [x] **Parent Dashboard:**
+    - [x] View their child's assigned vocabulary goals.
+    - [x] A button to start a flashcard session.
+- [x] **Flashcard System:**
+    - [x] Display flashcards for the child's current vocabulary goals.
     - [ ] Each card should show the word and a corresponding image/icon.
-    - [ ] Ability for the parent to mark progress (e.g., "Practicing", "Mastered").
+    - [x] Ability for the parent to mark progress (e.g., "Practicing", "Mastered").
 
 ## Phase 2: Enhanced Features
 

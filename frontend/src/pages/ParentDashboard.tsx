@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 interface Student {
-  id: number;
-  name: string;
+  id: string;
+  first_name: string;
+  last_name: string;
 }
 
 interface Word {
-  id: number;
+  id: string;
   category: string;
   word: string;
 }
@@ -31,7 +32,7 @@ const ParentDashboard: React.FC = () => {
 
           const assignedWordsResponse = await fetch(`http://localhost:4001/students/${firstStudent.id}/words`);
           if (!assignedWordsResponse.ok) throw new Error('Failed to fetch assigned words');
-          const assignedWordIds: number[] = await assignedWordsResponse.json();
+          const assignedWordIds: string[] = await assignedWordsResponse.json();
 
           const allWordsResponse = await fetch('http://localhost:4001/words');
           if (!allWordsResponse.ok) throw new Error('Failed to fetch all words');
@@ -56,7 +57,7 @@ const ParentDashboard: React.FC = () => {
   return (
     <div style={{fontFamily: 'sans-serif', padding: '2rem'}}>
       <h1>Parent Dashboard</h1>
-      <h2>{student.name}'s Vocabulary Goals</h2>
+      <h2>{student.first_name} {student.last_name}'s Vocabulary Goals</h2>
       {assignedWords.length > 0 ? (
         <>
           <p>Assigned Words: {assignedWords.length}</p>
@@ -73,7 +74,7 @@ const ParentDashboard: React.FC = () => {
           </ul>
         </>
       ) : (
-        <p>No vocabulary goals assigned for {student.name}. Please ask a teacher to assign words.</p>
+        <p>No vocabulary goals assigned for {student.first_name} {student.last_name}. Please ask a teacher to assign words.</p>
       )}
     </div>
   );

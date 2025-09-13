@@ -110,6 +110,42 @@ app.get('/students/:studentId/words', async (req: Request, res: Response) => {
   }
 });
 
+// Endpoint to get a student's progress
+app.get('/students/:studentId/progress', async (req: Request, res: Response) => {
+    const { studentId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT DISTINCT ON (word_id) word_id, level 
+             FROM progress
+             WHERE student_id = $1 
+             ORDER BY word_id, updated_at DESC`,
+            [studentId]
+        );
+        res.json(result.rows);
+    } catch (err: any) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint to get a student's associated parents
+app.get('/students/:studentId/parents', async (req: Request, res: Response) => {
+    const { studentId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT u.id, u.first_name, u.last_name, u.avatar_url
+             FROM users u
+             JOIN student_parent_association spa ON u.id = spa.parent_id
+             WHERE spa.student_id = $1`,
+            [studentId]
+        );
+        res.json(result.rows);
+    } catch (err: any) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Endpoint to update a student's assigned words
 app.post('/students/:studentId/words', async (req: Request, res: Response) => {
   const { studentId } = req.params;
