@@ -16,7 +16,7 @@ function TeacherDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('http://localhost:4001/students')
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/students`)
       .then(response => {
         if (!response.ok) {
           throw new Error('Network response was not ok');

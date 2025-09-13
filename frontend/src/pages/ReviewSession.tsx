@@ -21,11 +21,14 @@ interface Student {
 interface Progress {
     word_id: string;
     level: Level;
+    notes?: string;
+    for_review?: boolean;
 }
 
 interface ProgressEntry {
   wordId: string;
   level: Level;
+  forReview?: boolean;
 }
 
 const ReviewSession: React.FC = () => {
@@ -44,10 +47,10 @@ const ReviewSession: React.FC = () => {
     const fetchData = async () => {
       try {
         const [studentRes, wordsRes, assignedRes, progressRes] = await Promise.all([
-            fetch(`http://localhost:4001/students/${studentId}`),
-            fetch('http://localhost:4001/words'),
-            fetch(`http://localhost:4001/students/${studentId}/words`),
-            fetch(`http://localhost:4001/students/${studentId}/progress`)
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}`),
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/words`),
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/words`),
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/progress`)
         ]);
 
         if (!studentRes.ok) throw new Error('Failed to fetch student details');
@@ -68,8 +71,13 @@ const ReviewSession: React.FC = () => {
         }, {} as Record<string, Level>);
         setProgress(progressMap);
 
+        const forReviewMap = progressData.reduce((acc, p) => {
+            acc[p.word_id] = p.for_review ?? true; // Default to true if not set
+            return acc;
+        }, {} as Record<string, boolean>);
+
         const reviewWords = allWords.filter(word => 
-            assignedWordIds.includes(word.id) && progressMap[word.id] !== 'Spontaneous'
+            assignedWordIds.includes(word.id) && forReviewMap[word.id] === true
         );
 
         setWordsToReview(reviewWords);
@@ -111,6 +119,7 @@ const ReviewSession: React.FC = () => {
         .map(([wordId, level]) => ({
           wordId: wordId,
           level: level,
+          forReview: true, // When submitting from review session, assume it's for review
         }));
 
       const response = await fetch(`http://localhost:4001/students/${studentId}/baseline-progress`, {

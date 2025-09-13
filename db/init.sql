@@ -63,10 +63,10 @@ CREATE TABLE IF NOT EXISTS progress (
     student_id UUID REFERENCES students(id) ON DELETE CASCADE,
     word_id UUID REFERENCES words(id) ON DELETE CASCADE,
     level VARCHAR(20) NOT NULL CHECK (level IN ('Input', 'Comprehension', 'Imitation', 'Prompted', 'Spontaneous')),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    for_review BOOLEAN DEFAULT TRUE
 );
-
-ALTER TABLE progress ADD COLUMN IF NOT EXISTS notes TEXT;
 
 CREATE TABLE IF NOT EXISTS notes (
     id SERIAL PRIMARY KEY,

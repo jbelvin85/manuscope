@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Modal from '../components/Modal'; // Import the new Modal component
 import './AddStudent.css'; // Import the CSS file
 
 function AddStudent() {
@@ -9,13 +10,14 @@ function AddStudent() {
   const [dateOfBirth, setDateOfBirth] = useState<string>('');
   const [claimCode, setClaimCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null); // State for error messages
+  const [showModal, setShowModal] = useState<boolean>(false); // State to control modal visibility
   const navigate = useNavigate();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null); // Clear previous errors
     try {
-      const response = await fetch('http://localhost:4001/students', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -29,8 +31,7 @@ function AddStudent() {
       }
       const data = await response.json();
       setClaimCode(data.claim_code);
-      // alert(`Student ${data.first_name} ${data.last_name} added successfully! Claim Code: ${data.claim_code}`);
-      // navigate('/teacher'); // Navigate after successful addition and claim code display
+      setShowModal(true); // Show the modal on successful student addition
     } catch (err: any) {
       console.error('Error adding student:', err);
       setError(`Error adding student: ${err.message}`);
@@ -62,12 +63,27 @@ function AddStudent() {
         <button type="submit">Add Student</button>
       </form>
       {claimCode && (
-        <div className="claim-code-display">
-          <p>Student added successfully!</p>
+        <Modal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title="Student Added Successfully!"
+        >
           <p>Claim Code: <strong>{claimCode}</strong></p>
           <p>Please provide this code to the parent.</p>
-          <button onClick={() => navigate('/teacher')}>Go to Teacher Dashboard</button>
-        </div>
+          <button onClick={() => {
+            setShowModal(false); // Close modal
+            navigate('/teacher'); // Navigate after closing
+          }} style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            marginTop: '1rem',
+          }}>Go to Teacher Dashboard</button>
+        </Modal>
       )}
     </div>
   );

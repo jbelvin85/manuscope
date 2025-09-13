@@ -42,8 +42,8 @@ const StudentOnboarding: React.FC = () => {
     const fetchData = async () => {
       try {
         const [wordsResponse, studentResponse] = await Promise.all([
-          fetch('http://localhost:4001/words/first100'),
-          fetch(`http://localhost:4001/students/${studentId}`)
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/words/first100`),
+          fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}`)
         ]);
 
         if (!wordsResponse.ok) {

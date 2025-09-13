@@ -1,45 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Flashcard from '../components/Flashcard'; // Import the shared Flashcard component
+import { Level, levelOrder } from '../constants';
 
 interface Word {
-  id: number;
+  id: string;
   category: string;
   word: string;
+  image_link?: string;
+  video_link?: string;
 }
-
-interface FlashcardProps {
-  word: Word;
-}
-
-const Flashcard: React.FC<FlashcardProps> = ({ word }) => {
-  return (
-    <div style={{
-      border: '1px solid #ccc',
-      borderRadius: '8px',
-      padding: '2rem',
-      textAlign: 'center',
-      minHeight: '200px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      fontSize: '2rem',
-      fontWeight: 'bold',
-      backgroundColor: '#f9f9f9'
-    }}>
-      {word.word}
-      {/* Placeholder for image/icon */}
-      <div style={{marginTop: '1rem', fontSize: '1rem', color: '#666'}}>{word.category}</div>
-    </div>
-  );
-};
 
 const FlashcardSession: React.FC = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
   const [words, setWords] = useState<Word[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [progress, setProgress] = useState<Record<string, Level>>({}); // To store current session progress
   const [error, setError] = useState<string | null>(null);
+
+  const levels: Level[] = levelOrder.filter(l => l !== ''); // All valid levels
 
   useEffect(() => {
     if (!studentId) {
@@ -47,54 +27,85 @@ const FlashcardSession: React.FC = () => {
       return;
     }
 
-    fetch(`http://localhost:4001/students/${studentId}/words`)
-      .then(response => {
-        if (!response.ok) throw new Error('Failed to fetch assigned words');
-        return response.json();
-      })
-      .then(assignedWordIds => {
-        if (assignedWordIds.length === 0) {
+    // Fetch assigned words and all words
+    Promise.all([
+      fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/words`),
+      fetch(`${import.meta.env.VITE_API_BASE_URL}/words`)
+    ])
+      .then(async ([assignedRes, allWordsRes]) => {
+        if (!assignedRes.ok) throw new Error('Failed to fetch assigned words');
+        if (!allWordsRes.ok) throw new Error('Failed to fetch all words');
+
+        const assignedWordIds: string[] = await assignedRes.json();
+        const allWords: Word[] = await allWordsRes.json();
+
+        const filteredWords = allWords.filter(word => assignedWordIds.includes(word.id));
+
+        if (filteredWords.length === 0) {
           setError('No words assigned to this student.');
           return;
         }
-        return fetch('http://localhost:4001/words')
-          .then(response => {
-            if (!response.ok) throw new Error('Failed to fetch all words');
-            return response.json();
-          })
-          .then(allWords => {
-            const filteredWords = allWords.filter((word: Word) => assignedWordIds.includes(word.id));
-            setWords(filteredWords);
-          });
+        setWords(filteredWords);
+
+        // Fetch existing progress to pre-fill levels
+        const existingProgressRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/progress`);
+        if (!existingProgressRes.ok) throw new Error('Failed to fetch existing progress');
+        const existingProgressData = await existingProgressRes.json();
+        const initialProgressMap = existingProgressData.reduce((acc: Record<string, Level>, p: { word_id: string; level: Level }) => {
+            acc[p.word_id] = p.level;
+            return acc;
+        }, {});
+        setProgress(initialProgressMap);
+
       })
       .catch(err => setError(err.message));
   }, [studentId]);
 
-  const handleProgress = async (level: string) => {
-    if (!studentId || !words[currentWordIndex]) return;
+  const handleLevelChange = (wordId: string, level: Level) => {
+    setProgress(prevProgress => ({
+      ...prevProgress,
+      [wordId]: level,
+    }));
+  };
 
-    const wordId = words[currentWordIndex].id;
+  const handleNextWord = () => {
+    if (currentWordIndex < words.length - 1) {
+      setCurrentWordIndex(currentWordIndex + 1);
+    } else {
+      // End of session, save all progress
+      handleSubmitProgress();
+    }
+  };
+
+  const handlePreviousWord = () => {
+    if (currentWordIndex > 0) {
+      setCurrentWordIndex(currentWordIndex - 1);
+    }
+  };
+
+  const handleSubmitProgress = async () => {
+    if (!studentId) return;
+
+    const progressEntries = Object.entries(progress).map(([wordId, level]) => ({
+      wordId,
+      level,
+    }));
 
     try {
-      const response = await fetch('http://localhost:4001/progress', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/baseline-progress`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ studentId: parseInt(studentId), wordId, level }),
+        body: JSON.stringify({ progressEntries }),
       });
 
       if (!response.ok) {
         throw new Error('Failed to record progress');
       }
 
-      // Move to next word or end session
-      if (currentWordIndex < words.length - 1) {
-        setCurrentWordIndex(currentWordIndex + 1);
-      } else {
-        alert('Session complete!');
-        navigate('/parent'); // Go back to parent dashboard
-      }
+      alert('Session complete! Progress recorded.');
+      navigate(`/student/${studentId}`); // Go back to student profile
     } catch (err: any) {
       setError(err.message);
     }
@@ -109,11 +120,19 @@ const FlashcardSession: React.FC = () => {
     <div style={{fontFamily: 'sans-serif', padding: '2rem', maxWidth: '600px', margin: 'auto'}}>
       <h1>Flashcard Session</h1>
       <p>Word {currentWordIndex + 1} of {words.length}</p>
-      <Flashcard word={currentWord} />
-      <div style={{marginTop: '2rem', display: 'flex', justifyContent: 'space-around'}}>
-        <button onClick={() => handleProgress("Didn't Know")} style={{padding: '0.75rem 1.5rem', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>Didn't Know</button>
-        <button onClick={() => handleProgress('Practicing')} style={{padding: '0.75rem 1.5rem', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>Practicing</button>
-        <button onClick={() => handleProgress('Mastered')} style={{padding: '0.75rem 1.5rem', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>Mastered</button>
+      <Flashcard 
+        word={currentWord} 
+        currentLevel={progress[currentWord.id] || ''} 
+        onLevelChange={handleLevelChange} 
+        levels={levels} 
+      />
+      <div style={{marginTop: '2rem', display: 'flex', justifyContent: 'space-between'}}>
+        <button onClick={handlePreviousWord} disabled={currentWordIndex === 0}>Previous</button>
+        {currentWordIndex < words.length - 1 ? (
+          <button onClick={handleNextWord}>Next</button>
+        ) : (
+          <button onClick={handleSubmitProgress}>Finish Session</button>
+        )}
       </div>
     </div>
   );

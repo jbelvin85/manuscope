@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
+require('dotenv').config();
 
 const app = express();
 const port = 4001;
@@ -115,7 +116,7 @@ app.get('/students/:studentId/progress', async (req: Request, res: Response) => 
     const { studentId } = req.params;
     try {
         const result = await pool.query(
-            `SELECT DISTINCT ON (word_id) word_id, level 
+            `SELECT DISTINCT ON (word_id) word_id, level, notes, for_review 
              FROM progress
              WHERE student_id = $1 
              ORDER BY word_id, updated_at DESC`,
@@ -282,7 +283,7 @@ app.post('/students/:studentId/baseline-progress', async (req: Request, res: Res
   try {
     await client.query('BEGIN');
     for (const entry of progressEntries) {
-      const { wordId, level, notes } = entry;
+      const { wordId, level, notes, forReview } = entry; // Destructure forReview
       if (!wordId || !level) {
         throw new Error('Each progress entry must have wordId and level');
       }
@@ -294,16 +295,16 @@ app.post('/students/:studentId/baseline-progress', async (req: Request, res: Res
       );
 
       if (existingProgress.rows.length > 0) {
-        // Update existing progress entry's updated_at timestamp and notes
+        // Update existing progress entry's updated_at timestamp, notes, and for_review
         await client.query(
-          'UPDATE progress SET updated_at = CURRENT_TIMESTAMP, notes = $4 WHERE student_id = $1 AND word_id = $2 AND level = $3',
-          [studentId, wordId, level, notes]
+          'UPDATE progress SET updated_at = CURRENT_TIMESTAMP, notes = $4, for_review = $5 WHERE student_id = $1 AND word_id = $2 AND level = $3',
+          [studentId, wordId, level, notes, forReview] // Add forReview to parameters
         );
       } else {
         // Insert new progress entry
         await client.query(
-          'INSERT INTO progress (student_id, word_id, level, notes) VALUES ($1, $2, $3, $4)',
-          [studentId, wordId, level, notes]
+          'INSERT INTO progress (student_id, word_id, level, notes, for_review) VALUES ($1, $2, $3, $4, $5)',
+          [studentId, wordId, level, notes, forReview] // Add forReview to parameters
         );
       }
     }

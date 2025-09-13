@@ -22,7 +22,7 @@ const ParentDashboard: React.FC = () => {
     const fetchParentData = async () => {
       try {
         // For now, fetch the first student to display assigned words
-        const studentsResponse = await fetch('http://localhost:4001/students');
+        const studentsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students`);
         if (!studentsResponse.ok) throw new Error('Failed to fetch students');
         const studentsData: Student[] = await studentsResponse.json();
 
