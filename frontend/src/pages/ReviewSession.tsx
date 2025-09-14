@@ -79,7 +79,7 @@ const ReviewSession: React.FC = () => {
         setForReviewStatus(forReviewMap); // Store the for_review status
 
         const reviewWords = allWords.filter(word => 
-            assignedWordIds.includes(word.id) && forReviewMap[word.id] === true
+            assignedWordIds.includes(word.id) && progressMap[word.id] !== 'Spontaneous'
         );
 
         setWordsToReview(reviewWords);
@@ -147,7 +147,7 @@ const ReviewSession: React.FC = () => {
 
   if (loading) return <p>Loading review session...</p>;
   if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
-  if (wordsToReview.length === 0) return <p>All assigned words are at the 'Spontaneous' level!</p>;
+  if (wordsToReview.length === 0) return <p>No assigned words are available for review (all are at 'Spontaneous' level or none are assigned).</p>;
 
   const currentWord = wordsToReview[currentWordIndex];
 
