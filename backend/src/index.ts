@@ -288,23 +288,23 @@ app.post('/students/:studentId/baseline-progress', async (req: Request, res: Res
         throw new Error('Each progress entry must have wordId and level');
       }
 
-      // Check if a progress entry already exists for this student, word, and level
+      // Check if a progress entry already exists for this student and word
       const existingProgress = await client.query(
-        'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2 AND level = $3',
-        [studentId, wordId, level]
+        'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2',
+        [studentId, wordId]
       );
 
       if (existingProgress.rows.length > 0) {
-        // Update existing progress entry's updated_at timestamp, notes, and for_review
+        // Update existing progress entry's level, updated_at timestamp, notes, and for_review
         await client.query(
-          'UPDATE progress SET updated_at = CURRENT_TIMESTAMP, notes = $4, for_review = $5 WHERE student_id = $1 AND word_id = $2 AND level = $3',
-          [studentId, wordId, level, notes, forReview] // Add forReview to parameters
+          'UPDATE progress SET level = $3, updated_at = CURRENT_TIMESTAMP, notes = $4, for_review = $5 WHERE student_id = $1 AND word_id = $2',
+          [studentId, wordId, level, notes, forReview]
         );
       } else {
         // Insert new progress entry
         await client.query(
           'INSERT INTO progress (student_id, word_id, level, notes, for_review) VALUES ($1, $2, $3, $4, $5)',
-          [studentId, wordId, level, notes, forReview] // Add forReview to parameters
+          [studentId, wordId, level, notes, forReview]
         );
       }
     }

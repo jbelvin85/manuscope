@@ -40,6 +40,7 @@ const ReviewSession: React.FC = () => {
   const [progress, setProgress] = useState<Record<string, Level>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [forReviewStatus, setForReviewStatus] = useState<Record<string, boolean>>({});
 
   const levels: Level[] = ['Input', 'Comprehension', 'Imitation', 'Prompted', 'Spontaneous'];
 
@@ -75,6 +76,7 @@ const ReviewSession: React.FC = () => {
             acc[p.word_id] = p.for_review ?? true; // Default to true if not set
             return acc;
         }, {} as Record<string, boolean>);
+        setForReviewStatus(forReviewMap); // Store the for_review status
 
         const reviewWords = allWords.filter(word => 
             assignedWordIds.includes(word.id) && forReviewMap[word.id] === true
@@ -119,10 +121,10 @@ const ReviewSession: React.FC = () => {
         .map(([wordId, level]) => ({
           wordId: wordId,
           level: level,
-          forReview: true, // When submitting from review session, assume it's for review
+          forReview: forReviewStatus[wordId] ?? true, // Use stored status, default to true
         }));
 
-      const response = await fetch(`http://localhost:4001/students/${studentId}/baseline-progress`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/baseline-progress`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
