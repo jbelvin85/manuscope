@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Backend**: Fixed `SyntaxError: Unexpected end of JSON input` by gracefully handling empty or malformed student progress JSON files in `updateStudentProgressFile`.
 
 ### Changed
+- **Frontend**: Modified `handleBulkForReviewChange` in `StudentProfile.tsx` to send bulk progress updates to the backend, improving efficiency and reliability.
 - **Data Storage**: Completed migration of student progress from PostgreSQL table to JSON files.
 - **Frontend**: Updated `StudentProfile.tsx`, `FlashcardSession.tsx`, and `ReviewSession.tsx` to correctly handle student progress data in JSON object format.
 - **Review Word Modal**: Now displays the word's image in the review modal.

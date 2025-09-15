@@ -161,6 +161,28 @@ const StudentProfile: React.FC = () => {
     }
   };
 
+  const saveBulkWordProgress = async (progressEntries: { wordId: string, level?: Level, notes?: string, forReview?: boolean }[]) => {
+    try {
+      const payload = {
+        progressEntries: progressEntries,
+      };
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/baseline-progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to save bulk changes:', 'Status:', response.status, 'Response:', errorText);
+        throw new Error(`Failed to save bulk changes: ${errorText}`);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const handleToggleForReview = (wordId: string) => {
     const newStatus = !wordForReviewStatus[wordId];
     setWordForReviewStatus(prev => ({ ...prev, [wordId]: newStatus }));
@@ -238,11 +260,12 @@ const StudentProfile: React.FC = () => {
     });
   };
 
-  const handleBulkForReviewChange = (category: string, type: 'all' | 'none' | 'not-spontaneous') => {
+  const handleBulkForReviewChange = async (category: string, type: 'all' | 'none' | 'not-spontaneous') => {
     const wordsInCategory = groupedWords[category];
     if (!wordsInCategory) return;
 
     const newStatusUpdates: Record<string, boolean> = {};
+    const progressEntriesToSave: { wordId: string, level?: Level, notes?: string, forReview?: boolean }[] = [];
 
     wordsInCategory.forEach(word => {
       const currentStatus = wordForReviewStatus[word.id];
@@ -260,6 +283,12 @@ const StudentProfile: React.FC = () => {
 
       if (currentStatus !== newCalculatedStatus) {
         newStatusUpdates[word.id] = newCalculatedStatus;
+        progressEntriesToSave.push({
+          wordId: word.id,
+          forReview: newCalculatedStatus,
+          level: progress[word.id],
+          notes: wordNotes[word.id],
+        });
       }
     });
 
@@ -267,14 +296,8 @@ const StudentProfile: React.FC = () => {
       const updatedWordForReviewStatus = { ...wordForReviewStatus, ...newStatusUpdates };
       setWordForReviewStatus(updatedWordForReviewStatus);
 
-      Object.entries(newStatusUpdates).forEach(([wordId, forReview]) => {
-        saveWordProgress({
-          wordId: wordId,
-          forReview: forReview,
-          level: progress[wordId],
-          notes: wordNotes[wordId],
-        });
-      });
+      // Send a single bulk update request
+      await saveBulkWordProgress(progressEntriesToSave);
     }
   };
 
