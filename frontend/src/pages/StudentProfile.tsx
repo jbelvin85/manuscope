@@ -73,17 +73,28 @@ const StudentProfile: React.FC = () => {
             setParents(parentsData);
 
             const initialWordNotes: Record<string, string> = {};
-            const initialWordForReviewStatus: Record<string, boolean> = {}; // New
+            const initialWordForReviewStatus: Record<string, boolean> = {};
+            wordsData.forEach((word: Word) => {
+              initialWordForReviewStatus[word.id] = true; // Default all words to be checked
+            });
+
             progressData.forEach((p: Progress) => {
                 if (p.notes) {
                     initialWordNotes[p.word_id] = p.notes;
                 }
-                initialWordForReviewStatus[p.word_id] = p.for_review ?? true; // Default to true if not set
+                // If for_review is explicitly false, it will be set to false. Otherwise, true.
+                initialWordForReviewStatus[p.word_id] = p.for_review ?? true;
             });
             setWordNotes(initialWordNotes);
-            setWordForReviewStatus(initialWordForReviewStatus); // Set new state
+            setWordForReviewStatus(initialWordForReviewStatus);
 
-            const progressMap = progressData.reduce((acc, p) => { acc[p.word_id] = p.level; return acc; }, {} as Record<string, Level>);
+            const progressMap: Record<string, Level> = {};
+            wordsData.forEach((word: Word) => {
+              progressMap[word.id] = 'Input';
+            });
+            progressData.forEach((p: Progress) => {
+              progressMap[p.word_id] = p.level;
+            });
             setProgress(progressMap);
 
         } catch (err: any) {
@@ -117,46 +128,43 @@ const StudentProfile: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleToggleForReview = (wordId: string) => {
-    setWordForReviewStatus(prev => ({
-      ...prev,
-      [wordId]: !prev[wordId],
-    }));
-    // Immediately save changes when "Mark for Review" is toggled
-    handleSaveChanges();
-  };
-  const handleSaveChanges = async () => {
+  const saveWordProgress = async (wordData: { wordId: string, level?: Level, notes?: string, forReview?: boolean }) => {
     try {
-      const updatedProgress = words
-        .filter(word => wordForReviewStatus[word.id]) // Only include words marked for review
-        .map(word => ({
-          word_id: word.id,
-          level: progress[word.id] || '', // Use existing level or default
-          notes: wordNotes[word.id] || '', // Include notes
-          forReview: wordForReviewStatus[word.id] ?? true, // Include forReview status
-        }));
+      const payload = {
+        studentId: studentId,
+        wordId: wordData.wordId,
+        level: wordData.level,
+        notes: wordData.notes,
+        forReview: wordData.forReview,
+      };
 
-      console.log("Saving changes:", updatedProgress);
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/baseline-progress`, {
-        method: 'POST', // Changed from PUT to POST
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ progressEntries: updatedProgress }), // Wrapped in an object with progressEntries key
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Failed to save changes. Status:', response.status, 'Response:', errorText);
-        throw new Error(`Failed to save changes: ${response.status} - ${errorText}`);
+        console.error('Failed to save changes for word:', wordData.wordId, 'Status:', response.status, 'Response:', errorText);
+        throw new Error(`Failed to save changes: ${errorText}`);
       }
-      alert('Changes saved successfully!');
     } catch (err: any) {
       setError(err.message);
-      alert(`Error saving changes: ${err.message}`);
     }
   };
+
+  const handleToggleForReview = (wordId: string) => {
+    const newStatus = !wordForReviewStatus[wordId];
+    setWordForReviewStatus(prev => ({ ...prev, [wordId]: newStatus }));
+    saveWordProgress({
+      wordId: wordId,
+      forReview: newStatus,
+      level: progress[wordId],
+      notes: wordNotes[wordId],
+    });
+  };
+
   const toggleCategory = (category: string) => setCollapsedCategories(prev => ({ ...prev, [category]: !prev[category] }));
   const toggleLevelFilterDropdown = (category: string) => { setGroupFilterOpen({}); setLevelFilterOpen(prev => ({ [category]: !prev[category] })); };
   const toggleGroupFilterDropdown = (category: string) => { setLevelFilterOpen({}); setGroupFilterOpen(prev => ({ [category]: !prev[category] })); };
@@ -191,7 +199,13 @@ const StudentProfile: React.FC = () => {
 
   const handleSaveNotes = (wordId: string, newNotes: string) => {
     setWordNotes(prev => ({ ...prev, [wordId]: newNotes }));
-    handleSaveChanges();
+    saveWordProgress({
+      wordId: wordId,
+      notes: newNotes,
+      level: progress[wordId],
+      forReview: wordForReviewStatus[wordId],
+    });
+    handleCloseEditNotesModal();
   };
 
   const handleReviewWord = (wordId: string) => {
@@ -209,7 +223,13 @@ const StudentProfile: React.FC = () => {
 
   const handleUpdateLevel = (wordId: string, newLevel: Level) => {
     setProgress(prev => ({ ...prev, [wordId]: newLevel }));
-    handleSaveChanges();
+    saveWordProgress({
+      wordId: wordId,
+      level: newLevel,
+      notes: wordNotes[wordId],
+      forReview: wordForReviewStatus[wordId],
+    });
+    handleCloseReviewLevelModal();
   };
 
   const displayedWords = useMemo(() => {
@@ -227,7 +247,8 @@ const StudentProfile: React.FC = () => {
     return result;
   }, [groupedWords, progress, sortConfig, levelFilter]);
 
-  const wordsToReview = words.filter(word => wordForReviewStatus[word.id] === true).map(word => word.id);
+  const wordsToReviewList = useMemo(() => words.filter(word => wordForReviewStatus[word.id]), [words, wordForReviewStatus]);
+  const wordsToReview = wordsToReviewList.map(word => word.id);
   const formatDate = (dateString?: string) => !dateString ? 'N/A' : new Date(dateString).toISOString().split('T')[0];
   const getWordStyle = (wordId: string) => ({ padding: '0.25rem 0.5rem', borderRadius: '5px', backgroundColor: levelColors[progress[wordId] || ''], display: 'inline-block', marginBottom: '0.25rem' });
 
@@ -253,14 +274,25 @@ const StudentProfile: React.FC = () => {
         </header>
 
         <main style={{padding: '2rem'}}>
+            <div style={{marginBottom: '2rem', padding: '1rem', border: '1px solid #eee', borderRadius: '8px'}}>
+                <h2 style={{margin: 0, marginBottom: '1rem'}}>Words for Review ({wordsToReviewList.length})</h2>
+                <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem'}}>
+                    {wordsToReviewList.length > 0 ? wordsToReviewList.map(word => (
+                        <div key={word.id} style={getWordStyle(word.id)}>
+                            <span>{word.word}</span>
+                        </div>
+                    )) : <p>No words are currently marked for review.</p>}
+                </div>
+            </div>
+
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', marginBottom: '1rem'}}>
                 <h2 style={{margin: 0}}>Vocabulary Goals</h2>
                 <div>
-                    <button onClick={handleSaveChanges} style={{marginRight: '1rem'}}>Save Changes</button>
+                    
                     {Object.keys(progress).length === 0 ? (
                         <Link to={`/student/${studentId}/onboarding`}> <button style={{ padding: '0.5rem 1rem', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', border:'none', cursor:'pointer' }}> Start Onboarding Review </button> </Link>
                     ) : (
-                        <Link to={`/student/${studentId}/review`}> <button style={{ padding: '0.5rem 1rem', backgroundColor: '#28a745', color: 'white', borderRadius: '5px', border:'none', cursor:'pointer' }}> Review Words ({wordsToReview.length}) </button> </Link>
+                        <Link to={`/student/${studentId}/review`}> <button style={{ padding: '0.5rem 1rem', backgroundColor: '#28a745', color: 'white', borderRadius: '5px', border:'none', cursor:'pointer' }}> Review Words ({wordsToReviewList.length}) </button> </Link>
                     )}
                 </div>
             </div>

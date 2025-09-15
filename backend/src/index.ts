@@ -237,30 +237,35 @@ app.get('/words/first100', async (req: Request, res: Response) => {
 
 // Endpoint to record student progress
 app.post('/progress', async (req: Request, res: Response) => {
-  const { studentId, wordId, level, notes } = req.body;
+  const { studentId, wordId, level, notes, forReview } = req.body;
 
-  if (!studentId || !wordId || !level) {
-    return res.status(400).json({ error: 'Student ID, word ID, and level are required' });
+  if (!studentId || !wordId) {
+    return res.status(400).json({ error: 'Student ID and Word ID are required.' });
   }
 
   try {
-    // Check if a progress entry already exists for this student, word, and level
-    const existingProgress = await pool.query(
-      'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2 AND level = $3',
-      [studentId, wordId, level]
+    const existingResult = await pool.query(
+      'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2',
+      [studentId, wordId]
     );
 
-    if (existingProgress.rows.length > 0) {
-      // Update existing progress entry's updated_at timestamp and notes
+    if (existingResult.rows.length > 0) {
+      // UPDATE
+      const existingProgress = existingResult.rows[0];
       await pool.query(
-        'UPDATE progress SET updated_at = CURRENT_TIMESTAMP, notes = $4 WHERE student_id = $1 AND word_id = $2 AND level = $3',
-        [studentId, wordId, level, notes]
+        'UPDATE progress SET level = $1, notes = $2, for_review = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
+        [
+          level !== undefined ? level : existingProgress.level,
+          notes !== undefined ? notes : existingProgress.notes,
+          forReview !== undefined ? forReview : existingProgress.for_review,
+          existingProgress.id
+        ]
       );
     } else {
-      // Insert new progress entry
+      // INSERT
       await pool.query(
-        'INSERT INTO progress (student_id, word_id, level, notes) VALUES ($1, $2, $3, $4)',
-        [studentId, wordId, level, notes]
+        'INSERT INTO progress (student_id, word_id, level, notes, for_review) VALUES ($1, $2, $3, $4, $5)',
+        [studentId, wordId, level || 'Input', notes, forReview]
       );
     }
     res.status(201).json({ message: 'Progress recorded successfully' });
@@ -283,29 +288,34 @@ app.post('/students/:studentId/baseline-progress', async (req: Request, res: Res
   try {
     await client.query('BEGIN');
     for (const entry of progressEntries) {
-      const { wordId, level, notes, forReview } = entry; // Destructure forReview
-      if (!wordId || !level) {
-        throw new Error('Each progress entry must have wordId and level');
+      const { wordId, level, notes, forReview } = entry;
+      if (!wordId) {
+        continue;
       }
 
       // Check if a progress entry already exists for this student and word
-      const existingProgress = await client.query(
-        'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2',
+      const existingProgressResult = await client.query(
+        'SELECT id, level FROM progress WHERE student_id = $1 AND word_id = $2',
         [studentId, wordId]
       );
 
-      if (existingProgress.rows.length > 0) {
+      if (existingProgressResult.rows.length > 0) {
+        const existingProgress = existingProgressResult.rows[0];
+        const newLevel = level || existingProgress.level;
         // Update existing progress entry's level, updated_at timestamp, notes, and for_review
         await client.query(
-          'UPDATE progress SET level = $3, updated_at = CURRENT_TIMESTAMP, notes = $4, for_review = $5 WHERE student_id = $1 AND word_id = $2',
-          [studentId, wordId, level, notes, forReview]
+          'UPDATE progress SET level = $1, notes = $2, for_review = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
+          [newLevel, notes, forReview, existingProgress.id]
         );
       } else {
-        // Insert new progress entry
-        await client.query(
-          'INSERT INTO progress (student_id, word_id, level, notes, for_review) VALUES ($1, $2, $3, $4, $5)',
-          [studentId, wordId, level, notes, forReview]
-        );
+        // Insert new progress entry if level is provided or forReview is being set
+        if (level || forReview !== undefined) {
+          const newLevel = level || 'Input'; // Default to 'Input' if not provided
+          await client.query(
+            'INSERT INTO progress (student_id, word_id, level, notes, for_review) VALUES ($1, $2, $3, $4, $5)',
+            [studentId, wordId, newLevel, notes, forReview]
+          );
+        }
       }
     }
     await client.query('COMMIT');
