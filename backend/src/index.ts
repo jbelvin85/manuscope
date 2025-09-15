@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
+import * as fs from 'fs/promises'; // New import
+import * as path from 'path';     // New import
 require('dotenv').config();
 
 const app = express();
@@ -14,6 +16,16 @@ app.use(express.json());
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
+
+// Base directory for progress files (configurable via environment variable)
+const PROGRESS_FILES_BASE_DIR = process.env.MANUSCOPE_DATA_DIR
+    ? path.join(process.env.MANUSCOPE_DATA_DIR, 'student_progress')
+    : path.join(__dirname, '../data/student_progress'); // Default to backend/data/student_progress
+
+// Ensure the progress files directory exists on server startup
+fs.mkdir(PROGRESS_FILES_BASE_DIR, { recursive: true })
+    .then(() => console.log(`Ensured progress files directory exists: ${PROGRESS_FILES_BASE_DIR}`))
+    .catch(err => console.error('Failed to create progress files directory:', err));
 
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Language Acquisition Monitor API is running' });
@@ -115,17 +127,31 @@ app.get('/students/:studentId/words', async (req: Request, res: Response) => {
 app.get('/students/:studentId/progress', async (req: Request, res: Response) => {
     const { studentId } = req.params;
     try {
-        const result = await pool.query(
-            `SELECT DISTINCT ON (word_id) word_id, level, notes, for_review 
-             FROM progress
-             WHERE student_id = $1 
-             ORDER BY word_id, updated_at DESC`,
+        // 1. Get the progress file path from the database
+        const dbResult = await pool.query(
+            `SELECT progress_file_path FROM progress WHERE student_id = $1`,
             [studentId]
         );
-        res.json(result.rows);
+
+        if (dbResult.rows.length === 0) {
+            // No progress file path found, return empty progress
+            return res.json({});
+        }
+
+        const filePath = dbResult.rows[0].progress_file_path;
+
+        // 2. Read the JSON file
+        const fileContent = await fs.readFile(filePath, 'utf8');
+        const studentProgress = JSON.parse(fileContent);
+
+        res.json(studentProgress);
     } catch (err: any) {
         console.error(err);
-        res.status(500).json({ error: err.message });
+        // If file not found, return empty progress
+        if (err.code === 'ENOENT') {
+            return res.json({});
+        }
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -235,6 +261,87 @@ app.get('/words/first100', async (req: Request, res: Response) => {
   }
 });
 
+interface WordProgressEntry {
+    level: string;
+    notes?: string;
+    for_review?: boolean;
+}
+
+interface StudentProgressData {
+    [wordId: string]: WordProgressEntry;
+}
+
+async function updateStudentProgressFile(
+    studentId: string,
+    updates: { wordId: string; level?: string; notes?: string; forReview?: boolean }[]
+): Promise<void> {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Get the progress file path
+        let filePath: string;
+        const dbResult = await client.query(
+            `SELECT progress_file_path FROM progress WHERE student_id = $1`,
+            [studentId]
+        );
+
+        let currentProgress: StudentProgressData = {};
+
+        if (dbResult.rows.length > 0) {
+            filePath = dbResult.rows[0].progress_file_path;
+            try {
+                const fileContent = await fs.readFile(filePath, 'utf8');
+                currentProgress = JSON.parse(fileContent);
+            } catch (err: any) {
+                if (err.code === 'ENOENT') {
+                    console.warn(`Progress file not found for student ${studentId} at ${filePath}. Creating new.`);
+                    // File not found, start with empty progress
+                    filePath = path.join(PROGRESS_FILES_BASE_DIR, `${studentId}.json`);
+                } else {
+                    throw err; // Re-throw other file errors
+                }
+            }
+        } else {
+            // No entry in DB, create new file path
+            filePath = path.join(PROGRESS_FILES_BASE_DIR, `${studentId}.json`);
+            // Insert new entry into the progress table
+            await client.query(
+                `INSERT INTO progress (student_id, progress_file_path, last_updated) VALUES ($1, $2, NOW())`,
+                [studentId, filePath]
+            );
+        }
+
+        // Apply updates
+        updates.forEach(update => {
+            const { wordId, level, notes, forReview } = update;
+            const existingEntry = currentProgress[wordId];
+
+            currentProgress[wordId] = {
+                level: level !== undefined ? level : (existingEntry ? existingEntry.level : 'Input'),
+                notes: notes !== undefined ? notes : (existingEntry ? existingEntry.notes : undefined),
+                for_review: forReview !== undefined ? forReview : (existingEntry ? existingEntry.for_review : true),
+            };
+        });
+
+        // Write updated JSON to file
+        await fs.writeFile(filePath, JSON.stringify(currentProgress, null, 2), 'utf8');
+
+        // Update last_updated timestamp in DB
+        await client.query(
+            `UPDATE progress SET last_updated = NOW() WHERE student_id = $1`,
+            [studentId]
+        );
+
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
 // Endpoint to record student progress
 app.post('/progress', async (req: Request, res: Response) => {
   const { studentId, wordId, level, notes, forReview } = req.body;
@@ -244,30 +351,7 @@ app.post('/progress', async (req: Request, res: Response) => {
   }
 
   try {
-    const existingResult = await pool.query(
-      'SELECT * FROM progress WHERE student_id = $1 AND word_id = $2',
-      [studentId, wordId]
-    );
-
-    if (existingResult.rows.length > 0) {
-      // UPDATE
-      const existingProgress = existingResult.rows[0];
-      await pool.query(
-        'UPDATE progress SET level = $1, notes = $2, for_review = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
-        [
-          level !== undefined ? level : existingProgress.level,
-          notes !== undefined ? notes : existingProgress.notes,
-          forReview !== undefined ? forReview : existingProgress.for_review,
-          existingProgress.id
-        ]
-      );
-    } else {
-      // INSERT
-      await pool.query(
-        'INSERT INTO progress (student_id, word_id, level, notes, for_review) VALUES ($1, $2, $3, $4, $5)',
-        [studentId, wordId, level || 'Input', notes, forReview]
-      );
-    }
+    await updateStudentProgressFile(studentId, [{ wordId, level, notes, forReview }]);
     res.status(201).json({ message: 'Progress recorded successfully' });
   } catch (err: any) {
     console.error(err);
@@ -278,54 +362,18 @@ app.post('/progress', async (req: Request, res: Response) => {
 // Endpoint to record baseline progress for multiple words
 app.post('/students/:studentId/baseline-progress', async (req: Request, res: Response) => {
   const { studentId } = req.params;
-  const { progressEntries } = req.body; // Array of { wordId, level, notes }
+  const { progressEntries } = req.body; // Array of { wordId, level, notes, forReview }
 
   if (!Array.isArray(progressEntries)) {
     return res.status(400).json({ error: 'progressEntries must be an array' });
   }
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    for (const entry of progressEntries) {
-      const { wordId, level, notes, forReview } = entry;
-      if (!wordId) {
-        continue;
-      }
-
-      // Check if a progress entry already exists for this student and word
-      const existingProgressResult = await client.query(
-        'SELECT id, level FROM progress WHERE student_id = $1 AND word_id = $2',
-        [studentId, wordId]
-      );
-
-      if (existingProgressResult.rows.length > 0) {
-        const existingProgress = existingProgressResult.rows[0];
-        const newLevel = level || existingProgress.level;
-        // Update existing progress entry's level, updated_at timestamp, notes, and for_review
-        await client.query(
-          'UPDATE progress SET level = $1, notes = $2, for_review = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
-          [newLevel, notes, forReview, existingProgress.id]
-        );
-      } else {
-        // Insert new progress entry if level is provided or forReview is being set
-        if (level || forReview !== undefined) {
-          const newLevel = level || 'Input'; // Default to 'Input' if not provided
-          await client.query(
-            'INSERT INTO progress (student_id, word_id, level, notes, for_review) VALUES ($1, $2, $3, $4, $5)',
-            [studentId, wordId, newLevel, notes, forReview]
-          );
-        }
-      }
-    }
-    await client.query('COMMIT');
+    await updateStudentProgressFile(studentId, progressEntries);
     res.status(201).json({ message: 'Baseline progress recorded successfully' });
   } catch (err: any) {
-    await client.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    client.release();
   }
 });
 

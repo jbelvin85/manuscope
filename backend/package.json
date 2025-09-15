@@ -6,7 +6,8 @@
     "start": "node dist/index.js",
     "build": "npx tsc",
     "dev": "ts-node-dev src/index.ts",
-    "seed": "ts-node src/seed.ts"
+    "seed": "ts-node src/seed.ts",
+    "migrate-progress": "ts-node src/scripts/migrateProgress.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

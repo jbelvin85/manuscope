@@ -6,6 +6,7 @@ interface Word {
   category: string;
   word: string;
   word_group?: number;
+  image_link?: string;
 }
 
 interface ReviewWordModalProps {
@@ -26,11 +27,7 @@ const ReviewWordModal: React.FC<ReviewWordModalProps> = ({ word, currentLevel, o
 
   const handleLevelChange = (level: Level) => {
     setSelectedLevel(level);
-  };
-
-  const handleSave = () => {
-    onUpdateLevel(word.id, selectedLevel);
-    onClose();
+    onUpdateLevel(word.id, level);
   };
 
   return (
@@ -47,6 +44,7 @@ const ReviewWordModal: React.FC<ReviewWordModalProps> = ({ word, currentLevel, o
       zIndex: 1000,
     }}>
       <div style={{
+        position: 'relative', // For positioning the close button
         backgroundColor: 'white',
         padding: '2rem',
         borderRadius: '8px',
@@ -55,12 +53,21 @@ const ReviewWordModal: React.FC<ReviewWordModalProps> = ({ word, currentLevel, o
         maxWidth: '500px',
         textAlign: 'center',
       }}>
+        <button onClick={onClose} style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          background: 'none',
+          border: 'none',
+          fontSize: '1.5rem',
+          cursor: 'pointer',
+          lineHeight: '1',
+        }}>&times;</button>
         <h2>Review: {word.word}</h2>
-        <p>Current Level: <span style={{backgroundColor: levelColors[currentLevel], padding: '0.2em 0.5em', borderRadius: '4px'}}>{currentLevel || 'None'}</span></p>
+        {word.image_link && <img src={word.image_link} alt={word.word} style={{maxWidth: '100%', height: 'auto', maxHeight: '200px', margin: '1rem 0'}} />}
         
         <div style={{margin: '1.5rem 0'}}>
-          <h3>Set New Acquisition Level:</h3>
-          <div style={{display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px'}}>
+          <div style={{display: 'flex', justifyContent: 'center', gap: '10px'}}>
             {levelOrder.filter(l => l !== '').map(level => (
               <button
                 key={level}
@@ -79,11 +86,6 @@ const ReviewWordModal: React.FC<ReviewWordModalProps> = ({ word, currentLevel, o
               </button>
             ))}
           </div>
-        </div>
-
-        <div style={{marginTop: '2rem', display: 'flex', justifyContent: 'space-around'}}>
-          <button onClick={onClose} style={{padding: '0.5rem 1rem', backgroundColor: '#ccc', border: 'none', borderRadius: '5px', cursor: 'pointer'}}>Cancel</button>
-          <button onClick={handleSave} style={{padding: '0.5rem 1rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer'}}>Save Level</button>
         </div>
       </div>
     </div>

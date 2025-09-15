@@ -3,11 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { Level, levelColors, levelOrder } from '../constants';
 import ReviewWordModal from '../components/ReviewWordModal';
 import EditNotesModal from '../components/EditNotesModal';
+import FlashcardReviewModal from '../components/FlashcardReviewModal'; // Import new modal
 
 // Interfaces
 interface Student { id: string; first_name: string; last_name: string; school?: string; date_of_birth?: string; claim_code: string; created_at: string; avatar_url?: string; }
 interface User { id: number; first_name: string; last_name: string; avatar_url?: string; }
-interface Word { id: string; category: string; word: string; word_group?: number; notes?: string; }
+interface Word { id: string; category: string; word: string; word_group?: number; notes?: string; image_link?: string; }
 interface Progress { word_id: string; level: Level; notes?: string; for_review?: boolean; }
 
 const allLevels = levelOrder.filter(l => l !== '');
@@ -28,8 +29,10 @@ const StudentProfile: React.FC = () => {
   const [selectedWordForEditNotesModal, setSelectedWordForEditNotesModal] = useState<Word | null>(null);
   const [showReviewLevelModal, setShowReviewLevelModal] = useState<boolean>(false);
   const [selectedWordForReviewLevelModal, setSelectedWordForReviewLevelModal] = useState<Word | null>(null);
-
+  const [showFlashcardReviewModal, setShowFlashcardReviewModal] = useState(false); // State for the new modal
+  
   const [sortConfig, setSortConfig] = useState<Record<string, 'word' | 'level'>>({});
+  const [reviewSortConfig, setReviewSortConfig] = useState<'word' | 'level' | 'category'>('word'); // State for review list sorting
   const [levelFilter, setLevelFilter] = useState<Record<string, Set<Level>>>({});
   const [groupFilter, setGroupFilter] = useState<Record<string, Set<string>>>({});
   const [levelFilterOpen, setLevelFilterOpen] = useState<Record<string, boolean>>({});
@@ -82,7 +85,6 @@ const StudentProfile: React.FC = () => {
                 if (p.notes) {
                     initialWordNotes[p.word_id] = p.notes;
                 }
-                // If for_review is explicitly false, it will be set to false. Otherwise, true.
                 initialWordForReviewStatus[p.word_id] = p.for_review ?? true;
             });
             setWordNotes(initialWordNotes);
@@ -229,8 +231,50 @@ const StudentProfile: React.FC = () => {
       notes: wordNotes[wordId],
       forReview: wordForReviewStatus[wordId],
     });
-    handleCloseReviewLevelModal();
   };
+
+  const handleBulkForReviewChange = (category: string, type: 'all' | 'none' | 'not-spontaneous') => {
+    const wordsInCategory = groupedWords[category];
+    if (!wordsInCategory) return;
+
+    const newStatusUpdates: Record<string, boolean> = {};
+
+    wordsInCategory.forEach(word => {
+      const currentStatus = wordForReviewStatus[word.id];
+      let newCalculatedStatus: boolean;
+
+      if (type === 'all') {
+        newCalculatedStatus = true;
+      } else if (type === 'none') {
+        newCalculatedStatus = false;
+      } else if (type === 'not-spontaneous') {
+        newCalculatedStatus = progress[word.id] !== 'Spontaneous';
+      } else {
+        return;
+      }
+
+      if (currentStatus !== newCalculatedStatus) {
+        newStatusUpdates[word.id] = newCalculatedStatus;
+      }
+    });
+
+    if (Object.keys(newStatusUpdates).length > 0) {
+      const updatedWordForReviewStatus = { ...wordForReviewStatus, ...newStatusUpdates };
+      setWordForReviewStatus(updatedWordForReviewStatus);
+
+      Object.entries(newStatusUpdates).forEach(([wordId, forReview]) => {
+        saveWordProgress({
+          wordId: wordId,
+          forReview: forReview,
+          level: progress[wordId],
+          notes: wordNotes[wordId],
+        });
+      });
+    }
+  };
+
+  const handleOpenFlashcardReviewModal = () => setShowFlashcardReviewModal(true);
+  const handleCloseFlashcardReviewModal = () => setShowFlashcardReviewModal(false);
 
   const displayedWords = useMemo(() => {
     const result: Record<string, Word[]> = {};
@@ -247,8 +291,20 @@ const StudentProfile: React.FC = () => {
     return result;
   }, [groupedWords, progress, sortConfig, levelFilter]);
 
-  const wordsToReviewList = useMemo(() => words.filter(word => wordForReviewStatus[word.id]), [words, wordForReviewStatus]);
-  const wordsToReview = wordsToReviewList.map(word => word.id);
+  const wordsToReviewList = useMemo(() => {
+    const filtered = words.filter(word => wordForReviewStatus[word.id]);
+    const sorted = [...filtered].sort((a, b) => {
+        if (reviewSortConfig === 'level') {
+            return levelOrder.indexOf(progress[a.id] || '') - levelOrder.indexOf(progress[b.id] || '');
+        }
+        if (reviewSortConfig === 'category') {
+            return a.category.localeCompare(b.category);
+        }
+        return a.word.localeCompare(b.word);
+    });
+    return sorted;
+  }, [words, wordForReviewStatus, reviewSortConfig, progress]);
+
   const formatDate = (dateString?: string) => !dateString ? 'N/A' : new Date(dateString).toISOString().split('T')[0];
   const getWordStyle = (wordId: string) => ({ padding: '0.25rem 0.5rem', borderRadius: '5px', backgroundColor: levelColors[progress[wordId] || ''], display: 'inline-block', marginBottom: '0.25rem' });
 
@@ -275,7 +331,22 @@ const StudentProfile: React.FC = () => {
 
         <main style={{padding: '2rem'}}>
             <div style={{marginBottom: '2rem', padding: '1rem', border: '1px solid #eee', borderRadius: '8px'}}>
-                <h2 style={{margin: 0, marginBottom: '1rem'}}>Words for Review ({wordsToReviewList.length})</h2>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+                        <h2 style={{margin: 0}}>Words for Review ({wordsToReviewList.length})</h2>
+                        <div>
+                            <span style={{fontSize: '0.8rem', fontWeight: 'bold', marginRight: '0.5rem'}}>Sort by:</span>
+                            <button onClick={() => setReviewSortConfig('word')} style={{fontSize: '0.8rem', fontWeight: reviewSortConfig === 'word' ? 'bold' : 'normal'}}>A-Z</button>
+                            <button onClick={() => setReviewSortConfig('level')} style={{fontSize: '0.8rem', marginLeft: '0.5rem', fontWeight: reviewSortConfig === 'level' ? 'bold' : 'normal'}}>Level</button>
+                            <button onClick={() => setReviewSortConfig('category')} style={{fontSize: '0.8rem', marginLeft: '0.5rem', fontWeight: reviewSortConfig === 'category' ? 'bold' : 'normal'}}>Category</button>
+                        </div>
+                    </div>
+                    {wordsToReviewList.length > 0 && (
+                        <button onClick={handleOpenFlashcardReviewModal} style={{ padding: '0.5rem 1rem', backgroundColor: '#28a745', color: 'white', borderRadius: '5px', border:'none', cursor:'pointer' }}>
+                            Review Words
+                        </button>
+                    )}
+                </div>
                 <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem'}}>
                     {wordsToReviewList.length > 0 ? wordsToReviewList.map(word => (
                         <div key={word.id} style={getWordStyle(word.id)}>
@@ -287,14 +358,9 @@ const StudentProfile: React.FC = () => {
 
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', marginBottom: '1rem'}}>
                 <h2 style={{margin: 0}}>Vocabulary Goals</h2>
-                <div>
-                    
-                    {Object.keys(progress).length === 0 ? (
-                        <Link to={`/student/${studentId}/onboarding`}> <button style={{ padding: '0.5rem 1rem', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', border:'none', cursor:'pointer' }}> Start Onboarding Review </button> </Link>
-                    ) : (
-                        <Link to={`/student/${studentId}/review`}> <button style={{ padding: '0.5rem 1rem', backgroundColor: '#28a745', color: 'white', borderRadius: '5px', border:'none', cursor:'pointer' }}> Review Words ({wordsToReviewList.length}) </button> </Link>
-                    )}
-                </div>
+                {Object.keys(progress).length === 0 && (
+                    <Link to={`/student/${studentId}/onboarding`}> <button style={{ padding: '0.5rem 1rem', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', border:'none', cursor:'pointer' }}> Start Onboarding Review </button> </Link>
+                )}
             </div>
             
             {Object.entries(displayedWords).map(([category, wordsInCategory]) => (
@@ -323,6 +389,12 @@ const StudentProfile: React.FC = () => {
                                     <legend style={{fontSize: '0.8rem', fontWeight: 'bold'}}>Sort by</legend>
                                     <button onClick={() => handleSortChange(category, 'word')} style={{fontSize: '0.8rem', fontWeight: sortConfig[category] === 'word' || !sortConfig[category] ? 'bold' : 'normal'}}>A-Z</button>
                                     <button onClick={() => handleSortChange(category, 'level')} style={{fontSize: '0.8rem', marginLeft: '0.5rem', fontWeight: sortConfig[category] === 'level' ? 'bold' : 'normal'}}>Level</button>
+                                </fieldset>
+                                <fieldset style={{border: 'none', padding: '0'}}>
+                                    <legend style={{fontSize: '0.8rem', fontWeight: 'bold'}}>Bulk Select</legend>
+                                    <button onClick={() => handleBulkForReviewChange(category, 'all')} style={{fontSize: '0.8rem'}}>All</button>
+                                    <button onClick={() => handleBulkForReviewChange(category, 'none')} style={{fontSize: '0.8rem', marginLeft: '0.5rem'}}>None</button>
+                                    <button onClick={() => handleBulkForReviewChange(category, 'not-spontaneous')} style={{fontSize: '0.8rem', marginLeft: '0.5rem', whiteSpace: 'nowrap'}}>Not Spontaneous</button>
                                 </fieldset>
                                 <fieldset style={{border: 'none', padding: '0', position: 'relative'}}>
                                     <legend style={{fontSize: '0.8rem', fontWeight: 'bold'}}>Show / Hide</legend>
@@ -400,6 +472,14 @@ const StudentProfile: React.FC = () => {
                 onUpdateLevel={handleUpdateLevel}
             />
         )}
+    {showFlashcardReviewModal && (
+        <FlashcardReviewModal
+            words={wordsToReviewList}
+            progress={progress}
+            onClose={handleCloseFlashcardReviewModal}
+            onUpdateLevel={handleUpdateLevel}
+        />
+    )}
     </div>
   );
 }
