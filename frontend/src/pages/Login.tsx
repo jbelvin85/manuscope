@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,6 +28,8 @@ const Login: React.FC = () => {
       }
 
       const data = await response.json();
+      login(data.role, data.token); // Assuming the API returns a token
+
       if (data.role === 'teacher') {
         navigate('/teacher');
       } else if (data.role === 'parent') {

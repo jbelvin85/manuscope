@@ -9,7 +9,8 @@ import FlashcardReviewModal from '../components/FlashcardReviewModal'; // Import
 interface Student { id: string; first_name: string; last_name: string; school?: string; date_of_birth?: string; claim_code: string; created_at: string; avatar_url?: string; }
 interface User { id: number; first_name: string; last_name: string; avatar_url?: string; }
 interface Word { id: string; category: string; word: string; word_group?: number; notes?: string; image_link?: string; }
-interface Progress { word_id: string; level: Level; notes?: string; for_review?: boolean; }
+interface ProgressEntry { level: Level; notes?: string; for_review?: boolean; }
+interface ProgressData { [word_id: string]: ProgressEntry; }
 
 const allLevels = levelOrder.filter(l => l !== '');
 const allWordGroups = ['First 100', 'Next 150', 'Next 300', 'Guided Instruction'];
@@ -68,7 +69,7 @@ const StudentProfile: React.FC = () => {
             const studentData = await studentRes.json();
             const wordsData = await wordsRes.json();
             const assignedData = await assignedRes.json();
-            const progressData: Progress[] = await progressRes.json();
+            const progressData: ProgressData = await progressRes.json(); // Changed type to ProgressData
             const parentsData = await parentsRes.json();
 
             setStudent(studentData);
@@ -81,12 +82,14 @@ const StudentProfile: React.FC = () => {
               initialWordForReviewStatus[word.id] = true; // Default all words to be checked
             });
 
-            progressData.forEach((p: Progress) => {
+            // Iterate over the keys of the progressData object
+            for (const wordId in progressData) {
+                const p = progressData[wordId];
                 if (p.notes) {
-                    initialWordNotes[p.word_id] = p.notes;
+                    initialWordNotes[wordId] = p.notes;
                 }
-                initialWordForReviewStatus[p.word_id] = p.for_review ?? true;
-            });
+                initialWordForReviewStatus[wordId] = p.for_review ?? true;
+            }
             setWordNotes(initialWordNotes);
             setWordForReviewStatus(initialWordForReviewStatus);
 
@@ -94,9 +97,11 @@ const StudentProfile: React.FC = () => {
             wordsData.forEach((word: Word) => {
               progressMap[word.id] = 'Input';
             });
-            progressData.forEach((p: Progress) => {
-              progressMap[p.word_id] = p.level;
-            });
+            // Iterate over the keys of the progressData object
+            for (const wordId in progressData) {
+                const p = progressData[wordId];
+                progressMap[wordId] = p.level;
+            }
             setProgress(progressMap);
 
         } catch (err: any) {

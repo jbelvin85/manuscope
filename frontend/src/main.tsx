@@ -11,20 +11,43 @@ import CreateUser from './pages/CreateUser';
 import StudentProfile from './pages/StudentProfile';
 import FlashcardSession from './pages/FlashcardSession';
 import ReviewSession from './pages/ReviewSession'; // Import the new component
+import Layout from './components/Layout';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/teacher" element={<TeacherDashboard />} />
-        <Route path="/parent" element={<ParentDashboard />} />
-        <Route path="/teacher/add-student" element={<AddStudent />} />
         <Route path="/create-user" element={<CreateUser />} />
-        <Route path="/student/:studentId" element={<StudentProfile />} />
-        <Route path="/student/:studentId/onboarding" element={<StudentOnboarding />} />
-        <Route path="/student/:studentId/review" element={<ReviewSession />} /> {/* Add the new route */}
-        <Route path="/flashcards/:studentId" element={<FlashcardSession />} />
+        <Route
+          path="/teacher"
+          element={<Layout><TeacherDashboard /></Layout>}
+        />
+        <Route
+          path="/parent"
+          element={<Layout><ParentDashboard /></Layout>}
+        />
+        <Route
+          path="/teacher/add-student"
+          element={<Layout><AddStudent /></Layout>}
+        />
+        <Route
+          path="/student/:studentId"
+          element={<Layout><StudentProfile /></Layout>}
+        />
+        <Route
+          path="/student/:studentId/onboarding"
+          element={<Layout><StudentOnboarding /></Layout>}
+        />
+        <Route
+          path="/student/:studentId/review"
+          element={<Layout><ReviewSession /></Layout>}
+        />
+        <Route
+          path="/flashcards/:studentId"
+          element={<Layout><FlashcardSession /></Layout>}
+        />
       </Routes>
     </Router>
   );
@@ -32,6 +55,8 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );

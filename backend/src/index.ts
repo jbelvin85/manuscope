@@ -290,16 +290,30 @@ async function updateStudentProgressFile(
 
         if (dbResult.rows.length > 0) {
             filePath = dbResult.rows[0].progress_file_path;
+            let fileContent = '';
             try {
-                const fileContent = await fs.readFile(filePath, 'utf8');
-                currentProgress = JSON.parse(fileContent);
-            } catch (err: any) {
-                if (err.code === 'ENOENT') {
+                fileContent = await fs.readFile(filePath, 'utf8');
+                if (fileContent.trim() === '') { // Check if file content is empty or just whitespace
+                    console.warn(`Progress file for student ${studentId} at ${filePath} is empty. Initializing with empty progress.`);
+                    currentProgress = {};
+                } else {
+                    try {
+                        currentProgress = JSON.parse(fileContent);
+                    } catch (jsonErr: any) {
+                        console.error(`Error parsing JSON for student ${studentId} at ${filePath}:`, jsonErr);
+                        console.error('Malformed JSON content:', fileContent);
+                        // If JSON is malformed, treat as empty progress to avoid crashing
+                        currentProgress = {};
+                    }
+                }
+            } catch (readErr: any) {
+                if (readErr.code === 'ENOENT') {
                     console.warn(`Progress file not found for student ${studentId} at ${filePath}. Creating new.`);
                     // File not found, start with empty progress
                     filePath = path.join(PROGRESS_FILES_BASE_DIR, `${studentId}.json`);
                 } else {
-                    throw err; // Re-throw other file errors
+                    console.error(`Error reading progress file for student ${studentId} at ${filePath}:`, readErr);
+                    throw readErr; // Re-throw other file errors
                 }
             }
         } else {
@@ -325,7 +339,12 @@ async function updateStudentProgressFile(
         });
 
         // Write updated JSON to file
-        await fs.writeFile(filePath, JSON.stringify(currentProgress, null, 2), 'utf8');
+        try {
+            await fs.writeFile(filePath, JSON.stringify(currentProgress, null, 2), 'utf8');
+        } catch (writeErr: any) {
+            console.error(`Error writing progress file for student ${studentId} at ${filePath}:`, writeErr);
+            throw writeErr; // Re-throw file writing errors
+        }
 
         // Update last_updated timestamp in DB
         await client.query(

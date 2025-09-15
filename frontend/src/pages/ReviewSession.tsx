@@ -18,14 +18,15 @@ interface Student {
     last_name: string;
 }
 
-interface Progress {
-    word_id: string;
-    level: Level;
-    notes?: string;
-    for_review?: boolean;
+interface ProgressEntry {
+  level: Level;
+  notes?: string;
+  for_review?: boolean;
 }
 
-interface ProgressEntry {
+interface ProgressData { [word_id: string]: ProgressEntry; }
+
+interface ProgressSaveEntry {
   wordId: string;
   level: Level;
   forReview?: boolean;
@@ -62,20 +63,18 @@ const ReviewSession: React.FC = () => {
         const studentData: Student = await studentRes.json();
         const allWords: Word[] = await wordsRes.json();
         const assignedWordIds: string[] = await assignedRes.json();
-        const progressData: Progress[] = await progressRes.json();
+        const progressData: ProgressData = await progressRes.json(); // Changed type
 
         setStudent(studentData);
 
-        const progressMap = progressData.reduce((acc, p) => {
-            acc[p.word_id] = p.level;
-            return acc;
-        }, {} as Record<string, Level>);
-        setProgress(progressMap);
+        const progressMap: Record<string, Level> = {};
+        const forReviewMap: Record<string, boolean> = {};
 
-        const forReviewMap = progressData.reduce((acc, p) => {
-            acc[p.word_id] = p.for_review ?? true; // Default to true if not set
-            return acc;
-        }, {} as Record<string, boolean>);
+        for (const wordId in progressData) {
+            progressMap[wordId] = progressData[wordId].level;
+            forReviewMap[wordId] = progressData[wordId].for_review ?? true;
+        }
+        setProgress(progressMap);
         setForReviewStatus(forReviewMap); // Store the for_review status
 
         const reviewWords = allWords.filter(word => 
@@ -117,7 +116,7 @@ const ReviewSession: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      const progressEntries: ProgressEntry[] = Object.entries(progress)
+      const progressEntries: ProgressSaveEntry[] = Object.entries(progress)
         .map(([wordId, level]) => ({
           wordId: wordId,
           level: level,

@@ -1,0 +1,47 @@
+.footer {
+  background-color: #ffffff;
+  border-top: 1px solid #dee2e6;
+  padding: 0.75rem 1.5rem;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1030;
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+  max-width: 600px; /* Or adjust as needed */
+  margin: 0 auto;
+}
+
+.link {
+  text-decoration: none;
+  color: #495057;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: color 0.15s ease-in-out;
+}
+
+.link:hover {
+  color: #007bff;
+}
+
+.button {
+  background-color: transparent;
+  border: none;
+  color: #495057;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  padding: 0;
+  transition: color 0.15s ease-in-out;
+}
+
+.button:hover {
+  color: #007bff;
+}

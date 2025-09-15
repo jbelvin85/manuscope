@@ -11,6 +11,8 @@ const dbConfig = {
     port: parseInt(process.env.DB_PORT || '5432', 10),
 };
 
+console.log('Using dbConfig:', dbConfig);
+
 // Base directory for progress files (configurable via environment variable)
 const PROGRESS_FILES_BASE_DIR = process.env.MANUSCOPE_DATA_DIR
     ? path.join(process.env.MANUSCOPE_DATA_DIR, 'student_progress')

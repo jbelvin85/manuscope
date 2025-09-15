@@ -11,6 +11,14 @@ interface Word {
   video_link?: string;
 }
 
+interface ProgressEntry {
+  level: Level;
+  notes?: string;
+  for_review?: boolean;
+}
+
+interface ProgressData { [word_id: string]: ProgressEntry; }
+
 const FlashcardSession: React.FC = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
@@ -50,11 +58,12 @@ const FlashcardSession: React.FC = () => {
         // Fetch existing progress to pre-fill levels
         const existingProgressRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${studentId}/progress`);
         if (!existingProgressRes.ok) throw new Error('Failed to fetch existing progress');
-        const existingProgressData = await existingProgressRes.json();
-        const initialProgressMap = existingProgressData.reduce((acc: Record<string, Level>, p: { word_id: string; level: Level }) => {
-            acc[p.word_id] = p.level;
-            return acc;
-        }, {});
+        const existingProgressData: ProgressData = await existingProgressRes.json(); // Changed type
+        
+        const initialProgressMap: Record<string, Level> = {};
+        for (const wordId in existingProgressData) {
+            initialProgressMap[wordId] = existingProgressData[wordId].level;
+        }
         setProgress(initialProgressMap);
 
       })

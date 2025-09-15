@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Backend**: Fixed `SyntaxError: Unexpected end of JSON input` by gracefully handling empty or malformed student progress JSON files in `updateStudentProgressFile`.
+
 ### Changed
+- **Data Storage**: Completed migration of student progress from PostgreSQL table to JSON files.
+- **Frontend**: Updated `StudentProfile.tsx`, `FlashcardSession.tsx`, and `ReviewSession.tsx` to correctly handle student progress data in JSON object format.
 - **Review Word Modal**: Now displays the word's image in the review modal.
 - **Review Word Modal**: Refactored to simplify UI and save level changes automatically.
 - **Student Profile**: Moved "Review Words" button to the "Words for Review" section and removed the word count from the button.
@@ -15,4 +20,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Flashcard Review Modal**: Set a fixed height for the image container to prevent the modal height from changing during review.
 - **Backend**: Refactored student word progress storage from PostgreSQL table to JSON files, managed by new API endpoints.
 - **Database**: `progress` table schema updated to store `progress_file_path` instead of individual word progress entries.
+- **Backend**: Enhanced error logging in `updateStudentProgressFile` for file read/write and JSON parsing operations to provide more detailed debugging information.
 - **Tooling**: Updated cross-platform database backup scripts (`backup_db.sh`, `backup_db.bat`) to create plain SQL dumps from Dockerized PostgreSQL databases.
