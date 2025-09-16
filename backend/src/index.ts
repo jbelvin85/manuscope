@@ -311,6 +311,11 @@ async function updateStudentProgressFile(
                     console.warn(`Progress file not found for student ${studentId} at ${filePath}. Creating new.`);
                     // File not found, start with empty progress
                     filePath = path.join(PROGRESS_FILES_BASE_DIR, `${studentId}.json`);
+                    // IMPORTANT: Update the DB with the new file path if it was missing
+                    await client.query(
+                        `UPDATE progress SET progress_file_path = $1 WHERE student_id = $2`,
+                        [filePath, studentId]
+                    );
                 } else {
                     console.error(`Error reading progress file for student ${studentId} at ${filePath}:`, readErr);
                     throw readErr; // Re-throw other file errors

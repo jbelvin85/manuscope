@@ -1,7 +1,6 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import StudentOnboarding from './pages/StudentOnboarding'; // Import new component
+import ClaimStudent from './pages/ClaimStudent'; // Import the new ClaimStudent component
+import ProgressReports from './pages/ProgressReports'; // Import the new ProgressReports component
 
 import Login from './pages/Login';
 import TeacherDashboard from './pages/TeacherDashboard';
@@ -33,6 +32,10 @@ function App() {
           element={<Layout><AddStudent /></Layout>}
         />
         <Route
+          path="/claim-student" // New route for claiming students
+          element={<Layout><ClaimStudent /></Layout>}
+        />
+        <Route
           path="/student/:studentId"
           element={<Layout><StudentProfile /></Layout>}
         />
@@ -48,10 +51,22 @@ function App() {
           path="/flashcards/:studentId"
           element={<Layout><FlashcardSession /></Layout>}
         />
+        <Route
+          path="/progress-reports/:studentId" // New route for progress reports
+          element={<Layout><ProgressReports /></Layout>}
+        />
       </Routes>
     </Router>
   );
 }
+
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  </React.StrictMode>
+);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
