@@ -16,6 +16,7 @@ const Footer: React.FC = () => {
     <>
       <Link to="/parent" className="link">Dashboard</Link>
       <Link to="/review" className="link">Review</Link>
+      <Link to="/dictionary" className="link">Dictionary</Link>
       <button onClick={handleLogout} className="button">Logout</button>
     </>
   );
@@ -24,6 +25,7 @@ const Footer: React.FC = () => {
     <>
       <Link to="/teacher" className="link">Dashboard</Link>
       <Link to="/teacher" className="link">Students</Link>
+      <Link to="/dictionary" className="link">Dictionary</Link>
       <button onClick={handleLogout} className="button">Logout</button>
     </>
   );

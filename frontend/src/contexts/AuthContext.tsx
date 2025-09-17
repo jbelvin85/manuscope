@@ -30,7 +30,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userRole, setUserRole] = useState<string | null>(() => localStorage.getItem('userRole'));
   const [user, setUser] = useState<User | null>(() => {
     const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
+    if (storedUser && storedUser !== 'undefined') {
+      return JSON.parse(storedUser);
+    }
+    return null;
   });
   const [students, setStudents] = useState<Student[] | null>(null);
 

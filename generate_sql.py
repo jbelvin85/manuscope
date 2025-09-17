@@ -22,7 +22,7 @@ def normalize_word(word):
 
 def find_image_files(base_dir):
     """Finds all image files (svg, png, jpg) in the given directory."""
-    patterns = ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.jpeg']
+    patterns = ['**/*.svg', '**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.ai', '**/*.eps']
     files = []
     for pattern in patterns:
         files.extend(glob.glob(os.path.join(base_dir, pattern), recursive=True))
@@ -36,14 +36,21 @@ def create_image_map(image_files, base_dir):
         filename = os.path.basename(file_path)
         name_without_ext = os.path.splitext(filename)[0]
         
-        # Normalize it for matching
-        normalized_name = normalize_word(name_without_ext)
-        
         # Create a web-accessible path
         relative_path = os.path.relpath(file_path, base_dir)
         web_path = '/resources/flashcards/' + relative_path.replace('\\', '/')
         
-        image_map[normalized_name] = web_path
+        # Add the full normalized name
+        normalized_full_name = normalize_word(name_without_ext)
+        image_map[normalized_full_name] = web_path
+
+        # Handle combined words like 'big-little'
+        if '-' in name_without_ext:
+            parts = name_without_ext.split('-')
+            for part in parts:
+                normalized_part = normalize_word(part)
+                image_map[normalized_part] = web_path
+
     return image_map
 
 def generate_sql(data, image_map):

@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { useLocation } from 'react-router-dom'; // Import useLocation
 import Footer from './Footer';
 
 interface LayoutContextType {
@@ -22,6 +23,8 @@ interface LayoutProps {
 
 export const LayoutProvider: React.FC<LayoutProps> = ({ children }) => {
   const [isReviewSessionActive, setReviewSessionActive] = useState(false);
+  const location = useLocation(); // Get current location
+  const hideFooter = location.pathname === '/' || location.pathname === '/create-user'; // Determine if footer should be hidden
 
   useEffect(() => {
     if (isReviewSessionActive) {
@@ -41,7 +44,7 @@ export const LayoutProvider: React.FC<LayoutProps> = ({ children }) => {
         <main style={styles.main}>
           {children}
         </main>
-        <Footer />
+        {!hideFooter && <Footer />} {/* Conditionally render Footer */}
       </div>
     </LayoutContext.Provider>
   );

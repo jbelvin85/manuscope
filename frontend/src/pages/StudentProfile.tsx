@@ -124,17 +124,12 @@ const StudentProfile: React.FC = () => {
       const initialWordForReviewStatus: Record<string, boolean> = {};
       const progressMap: Record<string, Level> = {};
 
-      wordsData.forEach((word: Word) => {
-        initialWordForReviewStatus[word.id] = true; // Default all words to be checked
-        progressMap[word.id] = 'Input';
-      });
-
       for (const wordId in progressData) {
         const p = progressData[wordId];
         if (p.notes) {
           initialWordNotes[wordId] = p.notes;
         }
-        initialWordForReviewStatus[wordId] = p.for_review ?? true;
+        initialWordForReviewStatus[wordId] = p.for_review === true;
         progressMap[wordId] = p.level;
       }
 

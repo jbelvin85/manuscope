@@ -31,6 +31,7 @@ interface CategoryWord {
   id: string;
   word: string;
   level: Level;
+  lastLevelChangeDate?: string; // Add this field
 }
 
 interface CategoryBreakdownEntry {
@@ -291,7 +292,7 @@ const ProgressReports: React.FC = () => {
                         color: 'white',
                         fontSize: '0.9rem'
                       }}>
-                        {wordEntry.word} ({wordEntry.level})
+                        {wordEntry.word} ({wordEntry.level}) {wordEntry.lastLevelChangeDate ? `(${new Date(wordEntry.lastLevelChangeDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })})` : ''}
                       </span>
                     ))}
                   </div>

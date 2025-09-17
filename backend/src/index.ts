@@ -23,6 +23,7 @@ declare global {
 
 app.use(cors());
 app.use(express.json());
+app.use('/resources/flashcards', express.static(path.join(__dirname, '../../frontend/resources/flashcards')));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
@@ -387,6 +388,7 @@ interface WordProgressEntry {
     level: string;
     notes?: string;
     for_review?: boolean;
+    last_level_change_date?: string;
 }
 
 interface StudentProgressData {
@@ -450,6 +452,7 @@ async function updateStudentProgressFile(
                 level: level !== undefined ? level : (existingEntry ? existingEntry.level : 'Input'),
                 notes: notes !== undefined ? notes : (existingEntry ? existingEntry.notes : undefined),
                 for_review: forReview !== undefined ? forReview : (existingEntry ? existingEntry.for_review : true),
+                last_level_change_date: new Date().toISOString(),
             };
         });
 
@@ -504,6 +507,131 @@ app.post('/students/:studentId/baseline-progress', async (req: Request, res: Res
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+app.get('/students/:studentId/progress-report', authenticateToken, async (req: Request, res: Response) => {
+    const { studentId } = req.params;
+    const { startDate, endDate } = req.query; // These will be ISO strings
+
+    try {
+        // 1. Fetch Student Details
+        const studentResult = await pool.query('SELECT id, first_name, last_name FROM students WHERE id = $1', [studentId]);
+        if (studentResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Student not found' });
+        }
+        const student = studentResult.rows[0];
+
+        // 2. Fetch All Words
+        const allWordsResult = await pool.query('SELECT id, category, word FROM words');
+        const allWordsMap = new Map(allWordsResult.rows.map((w: any) => [w.id, w]));
+
+        // 3. Fetch Student Progress Data
+        const dbProgressResult = await pool.query(
+            `SELECT progress_file_path FROM progress WHERE student_id = $1`,
+            [studentId]
+        );
+
+        let studentProgress: StudentProgressData = {};
+        if (dbProgressResult.rows.length > 0 && dbProgressResult.rows[0].progress_file_path) {
+            const filePath = dbProgressResult.rows[0].progress_file_path;
+            try {
+                const fileContent = await fs.readFile(filePath, 'utf8');
+                if (fileContent.trim() !== '') {
+                    studentProgress = JSON.parse(fileContent);
+                }
+            } catch (readErr: any) {
+                if (readErr.code !== 'ENOENT') {
+                    console.error(`Error reading progress file for student ${studentId}:`, readErr);
+                }
+            }
+        }
+
+        // Initialize report structure
+        const report: any = {
+            studentId: student.id,
+            studentName: `${student.first_name} ${student.last_name}`,
+            reportPeriod: { startDate, endDate },
+            executiveSummary: {
+                totalWordsMastered: 0,
+                totalWordsInProgress: 0,
+                newWordsMasteredDuringPeriod: 0,
+                wordsMovedUpLevelDuringPeriod: 0,
+                lastActivityDate: 'N/A',
+            },
+            levelDistribution: [],
+            historicalProgress: {
+                wordsMasteredOverTime: [],
+                wordsMovedUpLevelOverTime: [],
+                cumulativeWordsMasteredOverTime: [],
+            },
+            categoryBreakdown: [],
+            notes: [], // Assuming notes will be fetched separately or added here if available
+        };
+
+        // Process progress data for summary and breakdown
+        const levelCounts: { [key: string]: number } = {};
+        const categoryMap: { [key: string]: { masteredCount: number; inProgressCount: number; totalCount: number; words: any[] } } = {};
+        let lastActivity: Date | null = null;
+
+        for (const wordId in studentProgress) {
+            const progressEntry = studentProgress[wordId];
+            const wordDetails = allWordsMap.get(wordId);
+
+            if (!wordDetails) continue; // Skip if word details not found
+
+            // Executive Summary & Level Distribution
+            if (progressEntry.level === 'Spontaneous') {
+                report.executiveSummary.totalWordsMastered++;
+            } else {
+                report.executiveSummary.totalWordsInProgress++;
+            }
+            levelCounts[progressEntry.level] = (levelCounts[progressEntry.level] || 0) + 1;
+
+            // Category Breakdown
+            if (!categoryMap[wordDetails.category]) {
+                categoryMap[wordDetails.category] = { masteredCount: 0, inProgressCount: 0, totalCount: 0, words: [] };
+            }
+            categoryMap[wordDetails.category].totalCount++;
+            if (progressEntry.level === 'Spontaneous') {
+                categoryMap[wordDetails.category].masteredCount++;
+            } else {
+                categoryMap[wordDetails.category].inProgressCount++;
+            }
+            categoryMap[wordDetails.category].words.push({
+                id: wordDetails.id,
+                word: wordDetails.word,
+                level: progressEntry.level,
+                lastLevelChangeDate: progressEntry.last_level_change_date, // Include the date
+            });
+
+            // Last Activity Date
+            if (progressEntry.last_level_change_date) {
+                const changeDate = new Date(progressEntry.last_level_change_date);
+                if (!lastActivity || changeDate > lastActivity) {
+                    lastActivity = changeDate;
+                }
+            }
+        }
+
+        // Populate levelDistribution
+        for (const level in levelCounts) {
+            report.levelDistribution.push({ level, count: levelCounts[level] });
+        }
+
+        // Populate categoryBreakdown
+        for (const category in categoryMap) {
+            report.categoryBreakdown.push({ category, ...categoryMap[category] });
+        }
+
+        // For historical progress and notes, we'll need more sophisticated logic and potentially separate tables/files.
+        // For now, these will remain empty or simplified.
+
+        res.json(report);
+
+    } catch (err: any) {
+        console.error(`Error generating progress report for student ${studentId}:`, err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 app.listen(port, () => {
