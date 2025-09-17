@@ -28,7 +28,8 @@ const Login: React.FC = () => {
       }
 
       const data = await response.json();
-      login(data.role, data.token); // Assuming the API returns a token
+      // The login function now expects the user object as the third argument
+      login(data.role, data.token, data.user);
 
       if (data.role === 'teacher') {
         navigate('/teacher');

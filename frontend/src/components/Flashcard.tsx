@@ -17,13 +17,14 @@ interface FlashcardProps {
   currentLevel: Level;
   onLevelChange: (wordId: string, level: Level) => void;
   levels: Level[];
+  style?: React.CSSProperties; // Add style prop to allow external styling
 }
 
-const Flashcard: React.FC<FlashcardProps> = ({ word, currentLevel, onLevelChange, levels }) => {
+const Flashcard: React.FC<FlashcardProps> = ({ word, currentLevel, onLevelChange, levels, style }) => {
   return (
     <div style={{
       border: '1px solid #ccc',
-      padding: '1.5rem',
+      padding: '1rem', // Adjusted padding
       borderRadius: '8px',
       textAlign: 'center',
       backgroundColor: '#f9f9f9',
@@ -31,29 +32,35 @@ const Flashcard: React.FC<FlashcardProps> = ({ word, currentLevel, onLevelChange
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
-      minHeight: '250px'
+      // minHeight: '250px', // Removed minHeight
+      flexGrow: 1, // Allow Flashcard to take available space
+      ...style // Apply external styles
     }}>
       <h3 style={{ fontSize: '1.8rem', margin: '0 0 1rem 0', color: '#333' }}>{word.word}</h3>
       {word.custom_image_boolean && word.custom_image_link ? (
-        <img src={word.custom_image_link} alt={word.word} style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', marginBottom: '1rem' }} />
+        <img src={word.custom_image_link} alt={word.word} style={{ maxWidth: '100%', maxHeight: '100px', objectFit: 'contain', marginBottom: '1rem' }} />
       ) : word.image_link ? (
-        <img src={word.image_link} alt={word.word} style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', marginBottom: '1rem' }} />
+        <img src={word.image_link} alt={word.word} style={{ maxWidth: '100%', maxHeight: '100px', objectFit: 'contain', marginBottom: '1rem' }} />
       ) : null}
       {word.video_link && (
-        <video controls src={word.video_link} style={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain', marginBottom: '1rem' }} />
+        <video controls src={word.video_link} style={{ maxWidth: '100%', maxHeight: '100px', objectFit: 'contain', marginBottom: '1rem' }} />
       )}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.2rem' }}> {/* Removed flexWrap, adjusted gap */}
         {levels.map(level => (
           <label key={level} style={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center', // Center text within button
             cursor: 'pointer',
-            padding: '0.5rem 1rem',
+            padding: '0.5rem 0.5rem', // Adjusted padding
             borderRadius: '20px',
             backgroundColor: currentLevel === level ? levelColors[level] : '#f0f0f0',
             border: `2px solid ${currentLevel === level ? levelColors[level] : '#ccc'}`,
             transition: 'background-color 0.2s, border-color 0.2s',
-            boxShadow: currentLevel === level ? '0 2px 5px rgba(0,0,0,0.2)' : 'none'
+            boxShadow: currentLevel === level ? '0 2px 5px rgba(0,0,0,0.2)' : 'none',
+            flex: 1, // Allow buttons to shrink and grow
+            whiteSpace: 'nowrap', // Prevent text from wrapping
+            fontSize: '0.75rem' // Smaller font size for scaling
           }}>
             <input
               type="radio"

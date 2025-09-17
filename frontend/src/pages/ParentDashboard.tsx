@@ -1,72 +1,137 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext'; // Import useAuth
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import StudentSelectorHeader from '../components/StudentSelectorHeader';
+import { Level, levelOrder } from '../constants';
 
-// Word interface is still needed if we display assigned words later
 interface Word {
   id: string;
   category: string;
   word: string;
 }
 
+interface ProgressSummary {
+  totalWords: number;
+  levels: { [level: string]: number };
+  forReview: number;
+}
+
+interface WordProgressEntry {
+  level: string;
+  notes?: string;
+  for_review?: boolean;
+}
+
+interface StudentProgressData {
+  [wordId: string]: WordProgressEntry;
+}
+
+interface ReviewWord extends Word {
+  progress: WordProgressEntry;
+}
+
 const ParentDashboard: React.FC = () => {
-  const { students, userRole } = useAuth(); // Get students from AuthContext
-  const [error, setError] = useState<string | null>(null); // Keep error state for other potential errors
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [assignedWords, setAssignedWords] = useState<Word[]>([]); // Keep assigned words state
+  const { students, userRole } = useAuth();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [progressSummary, setProgressSummary] = useState<ProgressSummary | null>(null);
+  const [allWords, setAllWords] = useState<Word[]>([]);
+  const [studentProgress, setStudentProgress] = useState<StudentProgressData | null>(null);
+  const [reviewWords, setReviewWords] = useState<ReviewWord[]>([]);
+  const [reviewSortConfig, setReviewSortConfig] = useState<'word' | 'category' | 'level'>('word');
 
   useEffect(() => {
     if (students && students.length > 0 && !selectedStudent) {
-      setSelectedStudent(students[0]); // Automatically select the first student
+      setSelectedStudent(students[0]);
     }
   }, [students, selectedStudent]);
 
   useEffect(() => {
-    const fetchAssignedWords = async () => {
+    const fetchData = async () => {
       if (selectedStudent) {
         try {
-          // Use the token from local storage for authorization
           const token = localStorage.getItem('token');
           if (!token) {
             setError('Authentication token not found.');
             return;
           }
 
-          const assignedWordsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${selectedStudent.id}/words`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            cache: 'no-store' // Ensure fresh data is fetched
-          });
-          if (!assignedWordsResponse.ok) throw new Error('Failed to fetch assigned words');
-          const assignedWordIds: string[] = await assignedWordsResponse.json();
+          const headers = { 'Authorization': `Bearer ${token}` };
 
-          const allWordsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/words`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            cache: 'no-store' // Ensure fresh data is fetched
-          });
+          // Fetch all words
+          const allWordsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/words`, { headers, cache: 'no-store' });
           if (!allWordsResponse.ok) throw new Error('Failed to fetch all words');
-          const allWords: Word[] = await allWordsResponse.json();
+          const allWordsData: Word[] = await allWordsResponse.json();
+          setAllWords(allWordsData);
 
-          const filteredWords = allWords.filter(word => assignedWordIds.includes(word.id));
-          setAssignedWords(filteredWords);
+          // Fetch student progress
+          const progressResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${selectedStudent.id}/progress`, { headers, cache: 'no-store' });
+          if (!progressResponse.ok) throw new Error('Failed to fetch student progress');
+          const progressData: StudentProgressData = await progressResponse.json();
+          setStudentProgress(progressData);
+
+          // Determine review words
+          const wordsForReview: ReviewWord[] = [];
+          for (const wordId in progressData) {
+            const progressEntry = progressData[wordId];
+            if (progressEntry.for_review) {
+              const wordDetails = allWordsData.find(word => word.id === wordId);
+              if (wordDetails) {
+                wordsForReview.push({ ...wordDetails, progress: progressEntry });
+              }
+            }
+          }
+          setReviewWords(wordsForReview);
+
+          // Fetch progress summary
+          const summaryResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/students/${selectedStudent.id}/progress-summary`, { headers, cache: 'no-store' });
+          if (!summaryResponse.ok) throw new Error('Failed to fetch progress summary');
+          const summaryData: ProgressSummary = await summaryResponse.json();
+          setProgressSummary(summaryData);
+
         } catch (err: any) {
           setError(err.message);
         }
       }
     };
 
-    fetchAssignedWords();
-  }, [selectedStudent]); // Refetch when selected student changes
+    fetchData();
+  }, [selectedStudent]);
+
+  const handleStudentChange = (student: any | null) => {
+    setSelectedStudent(student);
+  };
+
+  const sortedReviewWords = useMemo(() => {
+    const sorted = [...reviewWords].sort((a, b) => {
+      if (reviewSortConfig === 'word') {
+        return a.word.localeCompare(b.word);
+      } else if (reviewSortConfig === 'category') {
+        return a.category.localeCompare(b.category);
+      } else if (reviewSortConfig === 'level') {
+        return levelOrder.indexOf(a.progress.level) - levelOrder.indexOf(b.progress.level);
+      }
+      return 0;
+    });
+    return sorted;
+  }, [reviewWords, reviewSortConfig]);
+
+  const handleStartReviewSession = () => {
+    if (selectedStudent && sortedReviewWords.length > 0) {
+      // Pass selected student and words to review to the Review page
+      navigate('/review', { state: { student: selectedStudent, wordsToReview: sortedReviewWords } });
+    } else {
+      alert('Please select a student and ensure there are words marked for review.');
+    }
+  };
 
   if (userRole !== 'parent') {
     return <p style={{ color: 'red' }}>Access Denied: This page is for parents only.</p>;
   }
 
   if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
-  if (!students) return <p>Loading students...</p>; // Show loading for students
+  if (!students) return <p>Loading students...</p>;
 
   if (students.length === 0) {
     return (
@@ -77,33 +142,18 @@ const ParentDashboard: React.FC = () => {
     );
   }
 
+  const wordsInProgress = progressSummary ? progressSummary.totalWords - (progressSummary.levels['Spontaneous'] || 0) : 0;
+
   return (
     <div style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
-      <h1>Parent Dashboard</h1>
-
-      {/* Student Selector */}
-      {students.length > 1 && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label htmlFor="student-select" style={{ marginRight: '1rem', fontWeight: 'bold' }}>Select Student:</label>
-          <select
-            id="student-select"
-            value={selectedStudent?.id || ''}
-            onChange={(e) => {
-              const studentId = e.target.value;
-              const student = students.find(s => s.id === studentId);
-              setSelectedStudent(student || null);
-            }}
-            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
-          >
-            {students.map(s => (
-              <option key={s.id} value={s.id}>{s.first_name} {s.last_name}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      <StudentSelectorHeader
+        students={students}
+        selectedStudent={selectedStudent}
+        onStudentChange={handleStudentChange}
+      />
 
       {selectedStudent && (
-        <>
+        <main style={{padding: '2rem'}}>
           <h2>{selectedStudent.first_name} {selectedStudent.last_name}'s Learning Journey</h2>
           <div style={{
             border: '1px solid #e0e0e0',
@@ -113,9 +163,15 @@ const ParentDashboard: React.FC = () => {
             backgroundColor: '#f9f9f9'
           }}>
             <h3 style={{ marginTop: 0 }}>Progress Summary:</h3>
-            <p>Overall progress: <span style={{ fontWeight: 'bold', color: '#28a745' }}>Good</span></p>
-            <p>Words mastered: <span style={{ fontWeight: 'bold' }}>X</span></p> {/* Placeholder */}
-            <p>Words in progress: <span style={{ fontWeight: 'bold' }}>Y</span></p> {/* Placeholder */}
+            {progressSummary ? (
+              <>
+                <p>Words mastered: <span style={{ fontWeight: 'bold' }}>{progressSummary.levels['Spontaneous'] || 0}</span></p>
+                <p>Words in progress: <span style={{ fontWeight: 'bold' }}>{wordsInProgress}</span></p>
+                <p>Words to review: <span style={{ fontWeight: 'bold' }}>{progressSummary.forReview || 0}</span></p>
+              </>
+            ) : (
+              <p>Loading progress...</p>
+            )}
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
               <Link to={`/student-profile/${selectedStudent.id}`} style={{ textDecoration: 'none' }}>
                 <button style={{
@@ -134,7 +190,7 @@ const ParentDashboard: React.FC = () => {
                 <button style={{
                   padding: '0.75rem 1.5rem',
                   fontSize: '1rem',
-                  backgroundColor: '#6c757d', // A neutral color for reports
+                  backgroundColor: '#6c757d',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
@@ -146,33 +202,39 @@ const ParentDashboard: React.FC = () => {
             </div>
           </div>
 
-          {assignedWords.length > 0 ? (
-            <>
-              <p>Assigned Words: {assignedWords.length}</p>
-              <Link to={`/flashcards/${selectedStudent.id}`}>
-                <button style={{
-                  padding: '0.75rem 1.5rem',
-                  fontSize: '1rem',
-                  backgroundColor: '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}>
-                  Start Flashcards
+          {/* Words for Review Section */}
+          <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #eee', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <h2 style={{ margin: 0 }}>Words for Review ({sortedReviewWords.length})</h2>
+                <div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', marginRight: '0.5rem' }}>Sort by:</span>
+                  <button onClick={() => setReviewSortConfig('word')} style={{ fontSize: '0.8rem', fontWeight: reviewSortConfig === 'word' ? 'bold' : 'normal' }}>A-Z</button>
+                  <button onClick={() => setReviewSortConfig('level')} style={{ fontSize: '0.8rem', marginLeft: '0.5rem', fontWeight: reviewSortConfig === 'level' ? 'bold' : 'normal' }}>Level</button>
+                  <button onClick={() => setReviewSortConfig('category')} style={{ fontSize: '0.8rem', marginLeft: '0.5rem', fontWeight: reviewSortConfig === 'category' ? 'bold' : 'normal' }}>Category</button>
+                </div>
+              </div>
+              {sortedReviewWords.length > 0 && (
+                <button onClick={handleStartReviewSession} style={{ padding: '0.5rem 1rem', backgroundColor: '#28a745', color: 'white', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>
+                  Start Review
                 </button>
-              </Link>
-              <h3 style={{ marginTop: '2rem' }}>Assigned Word List:</h3>
-              <ul>
-                {assignedWords.map(word => (
-                  <li key={word.id}>{word.word} ({word.category})</li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p>No vocabulary goals assigned for {selectedStudent.first_name} {selectedStudent.last_name}.</p>
-          )}
-        </>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {sortedReviewWords.length > 0 ? sortedReviewWords.map(word => (
+                <div key={word.id} style={{
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '5px',
+                  backgroundColor: '#e0e0e0',
+                  display: 'inline-block',
+                  marginBottom: '0.25rem',
+                }}>
+                  <span>{word.word}</span>
+                </div>
+              )) : <p>No words are currently marked for review.</p>}
+            </div>
+          </div>
+        </main>
       )}
     </div>
   );

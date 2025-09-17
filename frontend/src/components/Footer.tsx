@@ -7,30 +7,31 @@ const Footer: React.FC = () => {
   const { userRole, logout } = useAuth();
   const navigate = useNavigate();
 
-  const dashboardPath = userRole === 'teacher' ? '/teacher' : '/parent';
-
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  // Determine the student link based on the user's role
-  const getStudentLink = () => {
-    if (userRole === 'teacher') {
-      return '/teacher'; // Teachers go to their dashboard to see all students
-    } else if (userRole === 'parent') {
-      // Parents might go to a specific child's profile, but for now, dashboard is fine
-      return '/parent'; 
-    }
-    return '/'; // Fallback
-  };
+  const renderParentLinks = () => (
+    <>
+      <Link to="/parent" className="link">Dashboard</Link>
+      <Link to="/review" className="link">Review</Link>
+      <button onClick={handleLogout} className="button">Logout</button>
+    </>
+  );
+
+  const renderTeacherLinks = () => (
+    <>
+      <Link to="/teacher" className="link">Dashboard</Link>
+      <Link to="/teacher" className="link">Students</Link>
+      <button onClick={handleLogout} className="button">Logout</button>
+    </>
+  );
 
   return (
     <footer className="footer">
       <nav className="nav">
-        <Link to={dashboardPath} className="link">Dashboard</Link>
-        <Link to={getStudentLink()} className="link">Students</Link>
-        <button onClick={handleLogout} className="button">Logout</button>
+        {userRole === 'parent' ? renderParentLinks() : renderTeacherLinks()}
       </nav>
     </footer>
   );

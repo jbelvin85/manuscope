@@ -1,6 +1,7 @@
 import StudentOnboarding from './pages/StudentOnboarding'; // Import new component
 import ClaimStudent from './pages/ClaimStudent'; // Import the new ClaimStudent component
 import ProgressReports from './pages/ProgressReports'; // Import the new ProgressReports component
+import Review from './pages/Review'; // Import the new Review component
 
 import Login from './pages/Login';
 import TeacherDashboard from './pages/TeacherDashboard';
@@ -10,7 +11,7 @@ import CreateUser from './pages/CreateUser';
 import StudentProfile from './pages/StudentProfile';
 import FlashcardSession from './pages/FlashcardSession';
 import ReviewSession from './pages/ReviewSession'; // Import the new component
-import Layout from './components/Layout';
+import { LayoutProvider } from './components/Layout'; // Import LayoutProvider
 import { AuthProvider } from './contexts/AuthContext';
 
 import React from 'react';
@@ -19,55 +20,61 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
   return (
-    <Router>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/create-user" element={<CreateUser />} />
         <Route
           path="/teacher"
-          element={<Layout><TeacherDashboard /></Layout>}
+          element={<TeacherDashboard />}
         />
         <Route
           path="/parent"
-          element={<Layout><ParentDashboard /></Layout>}
+          element={<ParentDashboard />}
         />
         <Route
           path="/teacher/add-student"
-          element={<Layout><AddStudent /></Layout>}
+          element={<AddStudent />}
         />
         <Route
           path="/claim-student" // New route for claiming students
-          element={<Layout><ClaimStudent /></Layout>}
+          element={<ClaimStudent />}
         />
         <Route
           path="/student/:studentId"
-          element={<Layout><StudentProfile /></Layout>}
+          element={<StudentProfile />}
         />
         <Route
           path="/student/:studentId/onboarding"
-          element={<Layout><StudentOnboarding /></Layout>}
+          element={<StudentOnboarding />}
         />
         <Route
           path="/student/:studentId/review"
-          element={<Layout><ReviewSession /></Layout>}
+          element={<ReviewSession />}
         />
         <Route
           path="/flashcards/:studentId"
-          element={<Layout><FlashcardSession /></Layout>}
+          element={<FlashcardSession />}
         />
         <Route
           path="/progress-reports/:studentId" // New route for progress reports
-          element={<Layout><ProgressReports /></Layout>}
+          element={<ProgressReports />}
+        />
+        <Route
+          path="/review" // New route for review page
+          element={<Review />}
         />
       </Routes>
-    </Router>
   );
 }
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <LayoutProvider>
+          <App />
+        </LayoutProvider>
+      </AuthProvider>
+    </Router>
   </React.StrictMode>
 );

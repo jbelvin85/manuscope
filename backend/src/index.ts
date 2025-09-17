@@ -1,14 +1,25 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
-import * as fs from 'fs/promises'; // New import
-import * as path from 'path';     // New import
+import jwt from 'jsonwebtoken';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 require('dotenv').config();
 
 const app = express();
 const port = 4001;
 const saltRounds = 10;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-default-secret';
+
+// Extend Express Request interface to include user
+declare global {
+    namespace Express {
+        interface Request {
+            user?: any; // You can define a more specific type for your user payload
+        }
+    }
+}
 
 app.use(cors());
 app.use(express.json());
@@ -17,21 +28,32 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
-// Base directory for progress files (configurable via environment variable)
 const PROGRESS_FILES_BASE_DIR = process.env.MANUSCOPE_DATA_DIR
     ? path.join(process.env.MANUSCOPE_DATA_DIR, 'student_progress')
-    : path.join(__dirname, '../data/student_progress'); // Default to backend/data/student_progress
+    : path.join(__dirname, '../data/student_progress');
 
-// Ensure the progress files directory exists on server startup
 fs.mkdir(PROGRESS_FILES_BASE_DIR, { recursive: true })
     .then(() => console.log(`Ensured progress files directory exists: ${PROGRESS_FILES_BASE_DIR}`))
     .catch(err => console.error('Failed to create progress files directory:', err));
+
+// Authentication Middleware
+const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (token == null) return res.sendStatus(401); // if there isn't any token
+
+    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+        if (err) return res.sendStatus(403); // if the token is no longer valid
+        req.user = user;
+        next(); // proceed to the next middleware or route handler
+    });
+};
 
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Language Acquisition Monitor API is running' });
 });
 
-// User login endpoint
 app.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -52,8 +74,10 @@ app.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // In a real app, you'd generate a JWT here
-    res.json({ message: 'Login successful', role: user.role, userId: user.id });
+    // Generate a JWT
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.json({ message: 'Login successful', token, role: user.role });
 
   } catch (err: any) {
     console.error(err);
@@ -61,7 +85,6 @@ app.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-// User creation endpoint
 app.post('/users', async (req: Request, res: Response) => {
   const { firstName, lastName, email, password, role } = req.body;
 
@@ -85,7 +108,64 @@ app.post('/users', async (req: Request, res: Response) => {
   }
 });
 
-// Example endpoint: get all students
+// GET parent's students
+app.get('/parent/students', authenticateToken, async (req: Request, res: Response) => {
+    const parentId = req.user.id;
+
+    try {
+        const result = await pool.query(
+            `SELECT s.id, s.first_name, s.last_name
+             FROM students s
+             JOIN student_parent_association spa ON s.id = spa.student_id
+             WHERE spa.parent_id = $1`,
+            [parentId]
+        );
+        res.json(result.rows);
+    } catch (err: any) {
+        console.error('Error fetching students for parent:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/students/claim', authenticateToken, async (req: Request, res: Response) => {
+    const parentId = req.user.id;
+    const { claim_code } = req.body;
+
+    if (!claim_code) {
+        return res.status(400).json({ error: 'Claim code is required' });
+    }
+
+    try {
+        // Find the student with the claim code
+        const studentResult = await pool.query('SELECT id FROM students WHERE claim_code = $1', [claim_code]);
+        if (studentResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Invalid claim code' });
+        }
+        const studentId = studentResult.rows[0].id;
+
+        // Check if the association already exists
+        const associationResult = await pool.query(
+            'SELECT * FROM student_parent_association WHERE student_id = $1 AND parent_id = $2',
+            [studentId, parentId]
+        );
+        if (associationResult.rows.length > 0) {
+            return res.status(409).json({ error: 'Student already claimed' });
+        }
+
+        // Create the association
+        await pool.query(
+            'INSERT INTO student_parent_association (student_id, parent_id) VALUES ($1, $2)',
+            [studentId, parentId]
+        );
+
+        res.status(201).json({ message: 'Student claimed successfully' });
+
+    } catch (err: any) {
+        console.error('Error claiming student:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.get('/students', async (req: Request, res: Response) => {
   try {
     const result = await pool.query('SELECT * FROM students');
@@ -96,7 +176,6 @@ app.get('/students', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint to get a single student
 app.get('/students/:studentId', async (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
@@ -111,7 +190,6 @@ app.get('/students/:studentId', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint to get a student's assigned words
 app.get('/students/:studentId/words', async (req: Request, res: Response) => {
   const { studentId } = req.params;
   try {
@@ -123,7 +201,6 @@ app.get('/students/:studentId/words', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint to get a student's progress
 app.get('/students/:studentId/progress', async (req: Request, res: Response) => {
     const { studentId } = req.params;
     try {
@@ -157,7 +234,6 @@ app.get('/students/:studentId/progress', async (req: Request, res: Response) => 
     }
 });
 
-// Endpoint to get a student's progress summary
 app.get('/students/:studentId/progress-summary', async (req: Request, res: Response) => {
     const { studentId } = req.params;
     try {
@@ -177,7 +253,7 @@ app.get('/students/:studentId/progress-summary', async (req: Request, res: Respo
             return res.json({ totalWords: 0, levels: {}, forReview: 0 });
         }
 
-        const studentProgress: StudentProgressData = JSON.parse(fileContent);
+        const studentProgress: any = JSON.parse(fileContent);
         
         const summary = {
             totalWords: Object.keys(studentProgress).length,
@@ -206,7 +282,6 @@ app.get('/students/:studentId/progress-summary', async (req: Request, res: Respo
     }
 });
 
-// Endpoint to get a student's associated parents
 app.get('/students/:studentId/parents', async (req: Request, res: Response) => {
     const { studentId } = req.params;
     try {
@@ -224,7 +299,6 @@ app.get('/students/:studentId/parents', async (req: Request, res: Response) => {
     }
 });
 
-// Endpoint to update a student's assigned words
 app.post('/students/:studentId/words', async (req: Request, res: Response) => {
   const { studentId } = req.params;
   const { wordIds } = req.body;
@@ -251,7 +325,6 @@ app.post('/students/:studentId/words', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint to add a new student
 app.post('/students', async (req: Request, res: Response) => {
   const { school, firstName, lastName, dateOfBirth } = req.body;
 
@@ -290,7 +363,6 @@ app.post('/students', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint to get all words
 app.get('/words', async (req: Request, res: Response) => {
   try {
     const result = await pool.query('SELECT id, category, word, level, image_link, video_link, custom_image_boolean, custom_image_link, created_at FROM words ORDER BY category, word');
@@ -301,7 +373,6 @@ app.get('/words', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint to get the first 100 vocabulary words
 app.get('/words/first100', async (req: Request, res: Response) => {
   try {
     const result = await pool.query('SELECT id, category, word, level, image_link, video_link, custom_image_boolean, custom_image_link, created_at FROM words ORDER BY id LIMIT 100');
@@ -330,7 +401,6 @@ async function updateStudentProgressFile(
     try {
         await client.query('BEGIN');
 
-        // Get the progress file path
         let filePath: string;
         const dbResult = await client.query(
             `SELECT progress_file_path FROM progress WHERE student_id = $1`,
@@ -344,45 +414,34 @@ async function updateStudentProgressFile(
             let fileContent = '';
             try {
                 fileContent = await fs.readFile(filePath, 'utf8');
-                if (fileContent.trim() === '') { // Check if file content is empty or just whitespace
-                    console.warn(`Progress file for student ${studentId} at ${filePath} is empty. Initializing with empty progress.`);
+                if (fileContent.trim() === '') {
                     currentProgress = {};
                 } else {
                     try {
                         currentProgress = JSON.parse(fileContent);
                     } catch (jsonErr: any) {
-                        console.error(`Error parsing JSON for student ${studentId} at ${filePath}:`, jsonErr);
-                        console.error('Malformed JSON content:', fileContent);
-                        // If JSON is malformed, treat as empty progress to avoid crashing
                         currentProgress = {};
                     }
                 }
             } catch (readErr: any) {
                 if (readErr.code === 'ENOENT') {
-                    console.warn(`Progress file not found for student ${studentId} at ${filePath}. Creating new.`);
-                    // File not found, start with empty progress
                     filePath = path.join(PROGRESS_FILES_BASE_DIR, `${studentId}.json`);
-                    // IMPORTANT: Update the DB with the new file path if it was missing
                     await client.query(
                         `UPDATE progress SET progress_file_path = $1 WHERE student_id = $2`,
                         [filePath, studentId]
                     );
                 } else {
-                    console.error(`Error reading progress file for student ${studentId} at ${filePath}:`, readErr);
-                    throw readErr; // Re-throw other file errors
+                    throw readErr;
                 }
             }
         } else {
-            // No entry in DB, create new file path
             filePath = path.join(PROGRESS_FILES_BASE_DIR, `${studentId}.json`);
-            // Insert new entry into the progress table
             await client.query(
                 `INSERT INTO progress (student_id, progress_file_path, last_updated) VALUES ($1, $2, NOW())`,
                 [studentId, filePath]
             );
         }
 
-        // Apply updates
         updates.forEach(update => {
             const { wordId, level, notes, forReview } = update;
             const existingEntry = currentProgress[wordId];
@@ -394,15 +453,12 @@ async function updateStudentProgressFile(
             };
         });
 
-        // Write updated JSON to file
         try {
             await fs.writeFile(filePath, JSON.stringify(currentProgress, null, 2), 'utf8');
         } catch (writeErr: any) {
-            console.error(`Error writing progress file for student ${studentId} at ${filePath}:`, writeErr);
-            throw writeErr; // Re-throw file writing errors
+            throw writeErr;
         }
 
-        // Update last_updated timestamp in DB
         await client.query(
             `UPDATE progress SET last_updated = NOW() WHERE student_id = $1`,
             [studentId]
@@ -417,7 +473,6 @@ async function updateStudentProgressFile(
     }
 }
 
-// Endpoint to record student progress
 app.post('/progress', async (req: Request, res: Response) => {
   const { studentId, wordId, level, notes, forReview } = req.body;
 
@@ -434,10 +489,9 @@ app.post('/progress', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint to record baseline progress for multiple words
 app.post('/students/:studentId/baseline-progress', async (req: Request, res: Response) => {
   const { studentId } = req.params;
-  const { progressEntries } = req.body; // Array of { wordId, level, notes, forReview }
+  const { progressEntries } = req.body;
 
   if (!Array.isArray(progressEntries)) {
     return res.status(400).json({ error: 'progressEntries must be an array' });

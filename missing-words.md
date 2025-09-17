@@ -1,0 +1,32 @@
+# Words Missing Images
+
+- bathtub
+- door
+- ear
+- foot
+- coat
+- bubbles
+- blow
+- clap
+- cry
+- cut
+- drink
+- drive
+- drop
+- eat
+- hug
+- jump
+- kick
+- kiss
+- open
+- pour
+- push
+- run
+- sleep
+- stir
+- throw
+- walk
+- wash
+- clean/dirty
+- happy/sad
+- hot/cold
