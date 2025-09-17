@@ -127,29 +127,80 @@ app.get('/students/:studentId/words', async (req: Request, res: Response) => {
 app.get('/students/:studentId/progress', async (req: Request, res: Response) => {
     const { studentId } = req.params;
     try {
-        // 1. Get the progress file path from the database
         const dbResult = await pool.query(
             `SELECT progress_file_path FROM progress WHERE student_id = $1`,
             [studentId]
         );
 
-        if (dbResult.rows.length === 0) {
-            // No progress file path found, return empty progress
+        if (dbResult.rows.length === 0 || !dbResult.rows[0].progress_file_path) {
             return res.json({});
         }
 
         const filePath = dbResult.rows[0].progress_file_path;
-
-        // 2. Read the JSON file
         const fileContent = await fs.readFile(filePath, 'utf8');
-        const studentProgress = JSON.parse(fileContent);
 
-        res.json(studentProgress);
-    } catch (err: any) {
-        console.error(err);
-        // If file not found, return empty progress
-        if (err.code === 'ENOENT') {
+        if (fileContent.trim() === '') {
             return res.json({});
+        }
+
+        const studentProgress = JSON.parse(fileContent);
+        res.json(studentProgress);
+
+    } catch (err: any) {
+        console.error(`Error fetching progress for student ${studentId}:`, err);
+
+        if (err.code === 'ENOENT' || err instanceof SyntaxError) {
+            return res.json({});
+        }
+
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Endpoint to get a student's progress summary
+app.get('/students/:studentId/progress-summary', async (req: Request, res: Response) => {
+    const { studentId } = req.params;
+    try {
+        const dbResult = await pool.query(
+            `SELECT progress_file_path FROM progress WHERE student_id = $1`,
+            [studentId]
+        );
+
+        if (dbResult.rows.length === 0 || !dbResult.rows[0].progress_file_path) {
+            return res.json({ totalWords: 0, levels: {}, forReview: 0 });
+        }
+
+        const filePath = dbResult.rows[0].progress_file_path;
+        const fileContent = await fs.readFile(filePath, 'utf8');
+
+        if (fileContent.trim() === '') {
+            return res.json({ totalWords: 0, levels: {}, forReview: 0 });
+        }
+
+        const studentProgress: StudentProgressData = JSON.parse(fileContent);
+        
+        const summary = {
+            totalWords: Object.keys(studentProgress).length,
+            levels: {} as { [level: string]: number },
+            forReview: 0,
+        };
+
+        for (const wordId in studentProgress) {
+            const entry = studentProgress[wordId];
+            if (entry.level) {
+                summary.levels[entry.level] = (summary.levels[entry.level] || 0) + 1;
+            }
+            if (entry.for_review) {
+                summary.forReview += 1;
+            }
+        }
+
+        res.json(summary);
+
+    } catch (err: any) {
+        console.error(`Error fetching progress summary for student ${studentId}:`, err);
+        if (err.code === 'ENOENT' || err instanceof SyntaxError) {
+            return res.json({ totalWords: 0, levels: {}, forReview: 0 });
         }
         res.status(500).json({ error: 'Internal server error' });
     }
